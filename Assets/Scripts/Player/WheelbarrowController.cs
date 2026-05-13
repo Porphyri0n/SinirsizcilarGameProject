@@ -50,7 +50,7 @@ public class WheelbarrowController : MonoBehaviour, IUpgradeable
         if (anchor == null) return;
 
         // Tutma noktasına çek + bakış yönünü hizala, hız çarpanıyla ölçekli
-        rb.velocity = (anchor.position - rb.position) * followStrength * SpeedMultiplier;
+        rb.linearVelocity = (anchor.position - rb.position) * followStrength * SpeedMultiplier;
 
         Vector3 faceDir = anchor.forward;
         faceDir.y = 0f;
