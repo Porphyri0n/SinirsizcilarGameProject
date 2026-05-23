@@ -16,10 +16,42 @@ public static class WaveScaler
         return waveNumber > 0 && waveNumber % GameConstants.BOSS_WAVE_INTERVAL == 0;
     }
 
-    // Wave N için tam gemi planı — sayılar wave ilerledikçe artar, ağır gemiler ileri wave'lerde devreye girer
+    // İlk bu kadar wave elle dengelenir; sonrası prosedürel WaveScaler'a bırakılır.
+    public const int HAND_BALANCED_COUNT = 5;
+
+    // Wave N için tam gemi planı. İlk 5 wave elle dengeli, wave 6+ prosedürel.
     public static WavePlan Plan(int waveNumber)
     {
         waveNumber = Mathf.Max(1, waveNumber);
+        if (waveNumber <= HAND_BALANCED_COUNT)
+            return HandBalancedPlan(waveNumber);
+        return ProceduralPlan(waveNumber);
+    }
+
+    // Elle ayarlanmış ilk 5 wave — yumuşak öğrenme eğrisi. Wave 5 boss wave (normal gemiler + 1 boss).
+    private static WavePlan HandBalancedPlan(int waveNumber)
+    {
+        WavePlan plan = new WavePlan
+        {
+            waveNumber = waveNumber,
+            isBossWave = IsBossWave(waveNumber)
+        };
+
+        switch (waveNumber)
+        {
+            case 1: plan.lightShips = 3; plan.spawnInterval = 2.0f; break;
+            case 2: plan.lightShips = 5; plan.spawnInterval = 1.8f; break;
+            case 3: plan.lightShips = 5; plan.mediumShips = 2; plan.spawnInterval = 1.6f; break;
+            case 4: plan.lightShips = 6; plan.mediumShips = 3; plan.spawnInterval = 1.4f; break;
+            case 5: plan.lightShips = 4; plan.mediumShips = 2; plan.bossShips = 1; plan.spawnInterval = 1.2f; break;
+        }
+
+        return plan;
+    }
+
+    // Wave 6+ prosedürel plan — sayılar wave ilerledikçe artar, ağır gemiler devreye girer
+    private static WavePlan ProceduralPlan(int waveNumber)
+    {
         float scale = DifficultyMultiplier(waveNumber);
 
         WavePlan plan = new WavePlan
@@ -27,8 +59,8 @@ public static class WaveScaler
             waveNumber = waveNumber,
             isBossWave = IsBossWave(waveNumber),
             lightShips = Mathf.Max(1, Mathf.RoundToInt(3f * scale)),
-            mediumShips = waveNumber >= 3 ? Mathf.RoundToInt(1.5f * scale) : 0,
-            heavyShips = waveNumber >= 6 ? Mathf.RoundToInt(0.6f * scale) : 0,
+            mediumShips = Mathf.RoundToInt(1.5f * scale),
+            heavyShips = Mathf.RoundToInt(0.6f * scale),
             spawnInterval = Mathf.Max(0.4f, 2f - 0.05f * (waveNumber - 1))
         };
 
