@@ -15,15 +15,20 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private int playerID = -1;
 
     private WeaponManager weapons;
+    private PotionSystem potions;       // opsiyonel — Strength iksiri hasarı çarpar
     private float nextAttackTime;
     private bool isBlocking;
 
     public bool IsBlocking => isBlocking;
     public bool IsOnAttackCooldown => Time.time < nextAttackTime;
 
+    // Strength iksiri aktifse canlı çarpan, değilse 1. Buff bitince PotionSystem 1'e döndüğü için otomatik reset.
+    private float StrengthMultiplier => potions != null ? potions.StrengthMultiplier : 1f;
+
     private void Awake()
     {
         weapons = GetComponent<WeaponManager>();
+        potions = GetComponent<PotionSystem>();
         if (attackOrigin == null) attackOrigin = transform;
     }
 
@@ -47,7 +52,7 @@ public class PlayerCombat : MonoBehaviour
     private void DoAttack()
     {
         WeaponData sword = weapons.Sword;
-        float damage = sword.damage;
+        float damage = sword.damage * StrengthMultiplier;
         float cooldown = sword.attackSpeed > 0f ? 1f / sword.attackSpeed : GameConstants.ATTACK_COOLDOWN;
         nextAttackTime = Time.time + Mathf.Max(GameConstants.ATTACK_COOLDOWN, cooldown);
 
