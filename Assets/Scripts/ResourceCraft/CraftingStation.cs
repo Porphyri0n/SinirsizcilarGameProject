@@ -16,6 +16,9 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
     [Header("Etkileşim")]
     [SerializeField] private string interactPrompt = "[E] Craft";
 
+    [Header("Craft")]
+    [SerializeField] private CraftQueueManager queue;
+
     public IReadOnlyList<RecipeData> Recipes => recipes;
 
     // Craft menüsü açma isteği — CraftingUI / craft kuyruğu dinler.
@@ -39,6 +42,52 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
         if (recipes == null) yield break;
         foreach (RecipeData recipe in recipes)
             if (CanCraft(recipe)) yield return recipe;
+    }
+
+    // ── ECONOMY (kaynak kontrolü + harcama) ──────────────────────────────
+    // EconomyManager'da tüm malzemeler var mı? (seviye kontrolünden ayrı)
+    public bool CanAfford(RecipeData recipe)
+    {
+        if (recipe == null) return false;
+        if (recipe.ingredients == null) return true;
+
+        EconomyManager econ = EconomyManager.Instance;
+        if (econ == null) return false;
+
+        foreach (RecipeIngredient ing in recipe.ingredients)
+        {
+            if (ing == null) continue;
+            if (!econ.HasEnough(ing.resourceType, ing.amount)) return false;
+        }
+        return true;
+    }
+
+    // Craft isteği — seviye + kaynak yeterliyse maliyeti düşer, kuyruğa ekler.
+    // Yetersizse hiçbir kaynak harcanmaz, craft engellenir (false).
+    public bool TryCraft(RecipeData recipe)
+    {
+        if (!CanCraft(recipe)) return false;        // ocak seviyesi yetmiyor
+        if (!CanAfford(recipe)) return false;       // kaynak yetersiz → engelle
+
+        SpendIngredients(recipe);
+
+        if (queue != null) queue.Enqueue(recipe);
+        return true;
+    }
+
+    // Tarifteki tüm malzemeleri EconomyManager'dan düş. (CanAfford önce doğrulanmalı)
+    private void SpendIngredients(RecipeData recipe)
+    {
+        if (recipe.ingredients == null) return;
+
+        EconomyManager econ = EconomyManager.Instance;
+        if (econ == null) return;
+
+        foreach (RecipeIngredient ing in recipe.ingredients)
+        {
+            if (ing == null) continue;
+            econ.SpendResource(ing.resourceType, ing.amount);
+        }
     }
 
     // ── IUpgradeable ─────────────────────────────────────────────────────
