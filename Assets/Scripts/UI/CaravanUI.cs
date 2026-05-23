@@ -14,6 +14,7 @@ public class CaravanUI : MonoBehaviour
     [SerializeField] private float fadeDuration = 0.6f;
     [SerializeField] private float holdDuration = 2.5f;
     [SerializeField] private string approachText = "TICARI KERVAN YAKLASIYOR";
+    [SerializeField] private string underAttackText = "KERVAN SALDIRI ALTINDA!";
 
     [Header("Yol Isareti (duman/bayrak)")]
     [SerializeField] private Transform marker;              // Kervanin ustunde duran duman/bayrak
@@ -31,6 +32,7 @@ public class CaravanUI : MonoBehaviour
     private void OnEnable()
     {
         EventBus.OnCaravanApproaching += HandleApproaching;
+        EventBus.OnCaravanUnderAttack += HandleUnderAttack;
         EventBus.OnCaravanArrived += HandleArrived;
         EventBus.OnCaravanDestroyed += HandleDestroyed;
     }
@@ -38,22 +40,26 @@ public class CaravanUI : MonoBehaviour
     private void OnDisable()
     {
         EventBus.OnCaravanApproaching -= HandleApproaching;
+        EventBus.OnCaravanUnderAttack -= HandleUnderAttack;
         EventBus.OnCaravanArrived -= HandleArrived;
         EventBus.OnCaravanDestroyed -= HandleDestroyed;
     }
 
     private void HandleApproaching(CaravanData data)
     {
-        Announce();
+        Announce(approachText);
         BeginTracking();
     }
+
+    // Kervan yolda saldiriya ugradi — uyari goster, takip surer (kervan hala yolda).
+    private void HandleUnderAttack(Vector3 pos) => Announce(underAttackText);
 
     private void HandleArrived(CaravanData data) => StopTracking();
     private void HandleDestroyed() => StopTracking();
 
-    private void Announce()
+    private void Announce(string text)
     {
-        if (label != null) label.text = approachText;
+        if (label != null) label.text = text;
         if (announceRoutine != null) StopCoroutine(announceRoutine);
         announceRoutine = StartCoroutine(AnnounceRoutine());
     }
