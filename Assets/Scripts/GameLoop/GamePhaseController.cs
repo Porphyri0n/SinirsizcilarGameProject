@@ -4,6 +4,7 @@ using UnityEngine;
 // Oyun fazı kontrolcüsü — Prep ve Wave arasında geçiş yapar. Singleton.
 // Prep süresi dolunca Wave fazına geçer; bir wave bittiğinde (OnWaveEnd) tekrar Prep'e döner.
 // Prep süresi wave ilerledikçe kısalır: PREP_BASE_DURATION'dan PREP_MIN_DURATION'a kadar.
+// Kervan zamanlaması da burada: her prep'te yaklaşan wave bir kervan wave'i mi diye bakar.
 public class GamePhaseController : MonoBehaviour
 {
     public static GamePhaseController Instance { get; private set; }
@@ -17,6 +18,11 @@ public class GamePhaseController : MonoBehaviour
 
     public GamePhase CurrentPhase => currentPhase;
     public float PrepTimeLeft => currentPhase == GamePhase.Prep ? prepTimer : 0f;
+
+    // Prep sırasında bir sonraki başlayacak wave numarası.
+    public int UpcomingWave => lastCompletedWave + 1;
+    // Bu prep'te kervan gelecek mi — Erdo'nun kervan sistemi OnPhaseChanged(Prep)'te bunu okur.
+    public bool CaravanDueThisPrep { get; private set; }
 
     private void Awake()
     {
@@ -52,12 +58,15 @@ public class GamePhaseController : MonoBehaviour
     {
         currentPhase = GamePhase.Prep;
         prepTimer = CurrentPrepDuration();
+        CaravanDueThisPrep = IsCaravanWave(UpcomingWave);
+        // Prep'e geçişi yayınla — WaveManager bunu beklemez ama kervan/UI dinler.
         EventBus.FirePhaseChanged(GamePhase.Prep);
     }
 
     private void EnterWave()
     {
         currentPhase = GamePhase.Wave;
+        // Wave fazına geçişi yayınla — WaveManager bunu duyup StartNextWave çağırır.
         EventBus.FirePhaseChanged(GamePhase.Wave);
     }
 
@@ -72,5 +81,12 @@ public class GamePhaseController : MonoBehaviour
     {
         float reduced = prepPhaseDuration - prepReductionPerWave * lastCompletedWave;
         return Mathf.Max(GameConstants.PREP_MIN_DURATION, reduced);
+    }
+
+    // Kervan CARAVAN_FIRST_WAVE'den itibaren her CARAVAN_INTERVAL wave'de bir gelir (3, 5, 7...).
+    public static bool IsCaravanWave(int waveNumber)
+    {
+        return waveNumber >= GameConstants.CARAVAN_FIRST_WAVE
+            && (waveNumber - GameConstants.CARAVAN_FIRST_WAVE) % GameConstants.CARAVAN_INTERVAL == 0;
     }
 }
