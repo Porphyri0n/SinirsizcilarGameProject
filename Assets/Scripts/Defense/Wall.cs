@@ -14,6 +14,8 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
     [Header("Hasar Aşamaları (yüksek → düşük can sırasıyla)")]
     [Tooltip("0: sağlam, 1: çatlak, ... sonuncusu: yıkık")]
     [SerializeField] private GameObject[] damageStages;
+    [Tooltip("Azalan sırada eşikler. Can yüzdesi eşiğin altına inince sonraki aşamaya geçer (0.5 → %50 çatlak, 0.25 → %25 ağır hasar)")]
+    [SerializeField] private float[] stageThresholds = { 0.5f, 0.25f };
     [SerializeField] private GameObject destroyedEffect;
 
     [Header("Tamir Maliyeti")]
@@ -84,15 +86,19 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
         OnDeath?.Invoke();
     }
 
-    /// <summary>Can yüzdesine göre doğru hasar aşamasını aktifleştirir (%100 → sağlam, %0 → yıkık).</summary>
+    /// <summary>Can yüzdesine göre doğru hasar aşamasını aktifleştirir (eşikler: %100 sağlam, %50 çatlak, %25 ağır hasar).</summary>
     private void UpdateDamageVisuals()
     {
         if (damageStages == null || damageStages.Length == 0)
             return;
 
         float pct = maxHealth > 0f ? currentHealth / maxHealth : 0f;
-        int lastIndex = damageStages.Length - 1;
-        int stage = Mathf.Clamp(Mathf.FloorToInt((1f - pct) * damageStages.Length), 0, lastIndex);
+
+        // Can yüzdesi bir eşiğin altına indikçe bir sonraki hasar aşamasına geç.
+        int stage = 0;
+        for (int i = 0; i < stageThresholds.Length; i++)
+            if (pct <= stageThresholds[i]) stage = i + 1;
+        stage = Mathf.Clamp(stage, 0, damageStages.Length - 1);
 
         for (int i = 0; i < damageStages.Length; i++)
         {

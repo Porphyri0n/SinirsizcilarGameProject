@@ -4,9 +4,9 @@ using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 
-// 3D recipe tahtası — craft ocağına yaklaşınca aktif olur, tarifleri listeler.
-// Renk kodu: yeterli kaynak yeşil, yetersiz kırmızı, ocak seviyesi yetmiyorsa kilitli (gri).
-// Slot'lar Inspector'dan bağlanır. EconomyManager ve CraftingStation'a bakar.
+// 3D recipe tahtası — craft ocağına yaklaşınca aktif olur, ocak seviyesinin desteklediği
+// tarifleri listeler (seviye yükseldikçe yeni tarifler açılır). Renk kodu: yeterli kaynak
+// yeşil, yetersiz kırmızı. Slot'lar Inspector'dan bağlanır. EconomyManager ve CraftingStation'a bakar.
 public class CraftingUI : MonoBehaviour
 {
     [Header("Referanslar")]
@@ -34,7 +34,7 @@ public class CraftingUI : MonoBehaviour
     {
         EventBus.OnResourceReceived += HandleResourceChanged;
         EventBus.OnResourceDeposited += HandleResourceChanged;
-        EventBus.OnUpgradeCompleted += HandleUpgradeCompleted;
+        if (station != null) station.OnUpgraded += HandleStationUpgraded;
         SetBoardVisible(false);
         BindSlots();
     }
@@ -43,7 +43,7 @@ public class CraftingUI : MonoBehaviour
     {
         EventBus.OnResourceReceived -= HandleResourceChanged;
         EventBus.OnResourceDeposited -= HandleResourceChanged;
-        EventBus.OnUpgradeCompleted -= HandleUpgradeCompleted;
+        if (station != null) station.OnUpgraded -= HandleStationUpgraded;
     }
 
     private void Update()
@@ -95,12 +95,12 @@ public class CraftingUI : MonoBehaviour
     {
         if (slots == null || station == null) return;
 
-        IReadOnlyList<RecipeData> recipes = station.Recipes;
-        if (recipes == null) return;
+        // Sadece ocak seviyesinin desteklediği tarifleri göster (seviye yükseldikçe yenileri açılır)
+        List<RecipeData> craftable = new List<RecipeData>(station.GetCraftableRecipes());
 
-        int n = Mathf.Min(slots.Length, recipes.Count);
+        int n = Mathf.Min(slots.Length, craftable.Count);
         for (int i = 0; i < n; i++)
-            slots[i].Bind(recipes[i]);
+            slots[i].Bind(craftable[i]);
 
         // Fazla slot varsa kapat
         for (int i = n; i < slots.Length; i++)
@@ -122,7 +122,13 @@ public class CraftingUI : MonoBehaviour
     }
 
     private void HandleResourceChanged(ResourceType type, int amount) => nextRefreshAt = 0f;
-    private void HandleUpgradeCompleted(string target, UpgradeLevel level) => nextRefreshAt = 0f;
+
+    // Ocak yükselince açılan yeni tarifleri yeniden bağla, sonra renkleri tazele
+    private void HandleStationUpgraded(UpgradeLevel level)
+    {
+        BindSlots();
+        nextRefreshAt = 0f;
+    }
 
     // Tahtadaki tek bir tarif satırı.
     [Serializable]

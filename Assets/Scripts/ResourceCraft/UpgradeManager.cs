@@ -7,6 +7,9 @@ using UnityEngine;
 // EventBus.FireUpgradeCompleted(targetName, newLevel) bitişte tetiklenir.
 public class UpgradeManager : MonoBehaviour
 {
+    // El arabası yükseltmesi tamamlanınca ekstra OnWheelbarrowUpgraded için targetName eşleşmesi.
+    public const string TARGET_WHEELBARROW = "Wheelbarrow";
+
     public bool IsUpgrading { get; private set; }
     public IUpgradeable CurrentTarget { get; private set; }
     public string CurrentTargetName { get; private set; }
@@ -82,6 +85,11 @@ public class UpgradeManager : MonoBehaviour
 
         target.Upgrade();       // IUpgradeable kendi seviyesini yükseltir
         EventBus.FireUpgradeCompleted(targetName, target.CurrentLevel);
+
+        // El arabası için ayrıca özel event — Koray (kapasite/hız) ve Ziya (UI) dinler
+        if (targetName == TARGET_WHEELBARROW)
+            EventBus.FireWheelbarrowUpgraded(target.CurrentLevel);
+
         OnUpgradeFinished?.Invoke(targetName, target.CurrentLevel);
 
         IsUpgrading = false;
