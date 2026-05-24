@@ -12,8 +12,13 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
 
     [Header("Referanslar")]
     [SerializeField] private Transform aimPivot;        // Nişana göre dönen kısım (namlu/yay)
-    [SerializeField] private Camera towerCamera;        // Kuledeyken aktif olan kamera
+    [SerializeField] private TowerCameraRig cameraRig;  // Giriş/çıkış kamera geçişi (yumuşak)
     [SerializeField] private Transform exitPoint;       // Çıkınca oyuncunun konumlanacağı nokta
+
+    [Header("Ateş")]
+    [SerializeField] private GameObject projectilePrefab;
+    [SerializeField] private Transform muzzle;          // Mermi çıkış noktası (aimPivot'un altında döner)
+    [SerializeField] private float projectileSpeed = 25f;
 
     [Header("Etkileşim")]
     [SerializeField] private string enterPrompt = "[E] Kuleye Gir";
@@ -21,12 +26,26 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     private GameObject operatorPlayer;
     private int operatorPlayerID = -1;
     private int enterFrame = -1;
+    private float lastFireTime = -999f;
 
     public bool IsOccupied => operatorPlayer != null;
     public int OperatorPlayerID => operatorPlayerID;
 
     protected GameObject Operator => operatorPlayer;
     protected DefenseType DefenseType => data != null ? data.defenseType : DefenseType.CannonTower;
+
+    private float FireInterval => (data != null && data.fireRate > 0f) ? 1f / data.fireRate : 1f;
+    private float Damage => data != null ? data.damage : GameConstants.SWORD_BASE_DAMAGE;
+    private float SplashRadius => data != null ? data.splashRadius : 0f;
+    private float Range => data != null ? data.range : 30f;
+
+    // Cannon parabolik (true), Archer düz (false). Alt sınıf belirler.
+    protected virtual bool ProjectileUsesGravity => false;
+
+    protected virtual void Awake()
+    {
+        if (cameraRig == null) cameraRig = GetComponent<TowerCameraRig>();
+    }
 
     // ── IInteractable ────────────────────────────────────────────────────
     public string GetInteractPrompt() => enterPrompt;
@@ -48,7 +67,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         enterFrame = Time.frameCount;
         SetPlayerControlEnabled(player, false);
 
-        if (towerCamera != null) towerCamera.enabled = true;
+        if (cameraRig != null) cameraRig.EnterView();
 
         EventBus.FireTowerEntered(operatorPlayerID, DefenseType);
         OnEntered();
@@ -61,7 +80,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         int pid = operatorPlayerID;
         GameObject leaving = operatorPlayer;
 
-        if (towerCamera != null) towerCamera.enabled = false;
+        if (cameraRig != null) cameraRig.ExitView();
         if (exitPoint != null && leaving != null)
             leaving.transform.position = exitPoint.position;
         SetPlayerControlEnabled(leaving, true);
@@ -85,7 +104,31 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         if (!IsOccupied || Time.frameCount == enterFrame) return;
 
         if (Input.GetKeyDown(GameConstants.INTERACT_KEY) || Input.GetKeyDown(KeyCode.Escape))
+        {
             Exit(operatorPlayer);
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(0) && Time.time >= lastFireTime + FireInterval)
+            Fire();
+    }
+
+    // Sol tık ateşi — muzzle yönüne mermi spawn'lar, fireRate kadar cooldown, FireTowerFired duyurur.
+    private void Fire()
+    {
+        if (projectilePrefab == null) return;
+
+        lastFireTime = Time.time;
+
+        Transform origin = muzzle != null ? muzzle : (aimPivot != null ? aimPivot : transform);
+        Vector3 dir = origin.forward;
+
+        GameObject obj = Instantiate(projectilePrefab, origin.position, Quaternion.LookRotation(dir));
+        Projectile projectile = obj.GetComponent<Projectile>();
+        if (projectile != null)
+            projectile.Launch(dir, projectileSpeed, Damage, SplashRadius, ProjectileUsesGravity, gameObject);
+
+        EventBus.FireTowerFired(DefenseType, origin.position + dir * Range);
     }
 
     // Alt sınıflar ateş/menzil kurulumu için override eder.
