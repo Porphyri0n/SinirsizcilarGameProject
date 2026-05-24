@@ -12,7 +12,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
 
     [Header("Referanslar")]
     [SerializeField] private Transform aimPivot;        // Nişana göre dönen kısım (namlu/yay)
-    [SerializeField] private Camera towerCamera;        // Kuledeyken aktif olan kamera
+    [SerializeField] private TowerCameraRig cameraRig;  // Giriş/çıkış kamera geçişi (yumuşak)
     [SerializeField] private Transform exitPoint;       // Çıkınca oyuncunun konumlanacağı nokta
 
     [Header("Ateş")]
@@ -42,6 +42,11 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     // Cannon parabolik (true), Archer düz (false). Alt sınıf belirler.
     protected virtual bool ProjectileUsesGravity => false;
 
+    protected virtual void Awake()
+    {
+        if (cameraRig == null) cameraRig = GetComponent<TowerCameraRig>();
+    }
+
     // ── IInteractable ────────────────────────────────────────────────────
     public string GetInteractPrompt() => enterPrompt;
     public bool CanInteract(GameObject player) => !IsOccupied;
@@ -62,7 +67,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         enterFrame = Time.frameCount;
         SetPlayerControlEnabled(player, false);
 
-        if (towerCamera != null) towerCamera.enabled = true;
+        if (cameraRig != null) cameraRig.EnterView();
 
         EventBus.FireTowerEntered(operatorPlayerID, DefenseType);
         OnEntered();
@@ -75,7 +80,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         int pid = operatorPlayerID;
         GameObject leaving = operatorPlayer;
 
-        if (towerCamera != null) towerCamera.enabled = false;
+        if (cameraRig != null) cameraRig.ExitView();
         if (exitPoint != null && leaving != null)
             leaving.transform.position = exitPoint.position;
         SetPlayerControlEnabled(leaving, true);
