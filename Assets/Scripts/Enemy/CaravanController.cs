@@ -48,11 +48,11 @@ public class CaravanController : MonoBehaviour, IDamageable
         }
     }
 
-    // Spawner kervani yapilandirip yolculugu baslatir.
-    public void Launch(CaravanData caravanData)
+    // Spawner kervani yapilandirip yolculugu baslatir. wave: kargo olceklemesi icin guncel wave.
+    public void Launch(CaravanData caravanData, int wave)
     {
-        data = caravanData;
-        if (movement != null) movement.Configure(caravanData);
+        data = BuildRuntimeData(caravanData, wave);
+        if (movement != null) movement.Configure(data);
 
         currentHealth = MaxHealth;
         destroyed = false;
@@ -61,6 +61,16 @@ public class CaravanController : MonoBehaviour, IDamageable
         state = CaravanState.Approaching;
         EventBus.FireCaravanApproaching(data);
         if (movement != null) movement.BeginApproach();
+    }
+
+    // Paylasilan SO'yu bozmadan runtime kopya uretir; kargoyu wave'e gore doldurur (gelismis kaynak sistemi).
+    private CaravanData BuildRuntimeData(CaravanData baseData, int wave)
+    {
+        if (baseData == null) return null;
+
+        CaravanData runtime = Instantiate(baseData);
+        runtime.cargo = CaravanCargoBuilder.Build(wave, baseData.minWaveForAdvanced);
+        return runtime;
     }
 
     private void HandleReachedCastle()
