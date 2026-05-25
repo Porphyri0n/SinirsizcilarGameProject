@@ -39,6 +39,30 @@ MonoBehaviour:
   - ClickRpc
   - DestroyRpc
   - HeresWhy
+  - DestroySpaceship
+  - Fire
+  - RespawnSpaceship
+  - RPC_BanditKilled
+  - RPC_BanditSpawn
+  - RPC_CaravanApproach
+  - RPC_CaravanArrived
+  - RPC_CaravanAttacked
+  - RPC_CaravanDestroyed
+  - RPC_CompleteCraft
+  - RPC_DestroyShip
+  - RPC_EnterTower
+  - RPC_EquipWeapon
+  - RPC_ExitTower
+  - RPC_PhaseChange
+  - RPC_PlayerAttack
+  - RPC_PlayerBlock
+  - RPC_SpawnShip
+  - RPC_StartCraft
+  - RPC_TakeDamage
+  - RPC_TowerFire
+  - RPC_Upgrade
+  - RPC_WaveEnd
+  - RPC_WaveStart
   DisableAutoOpenWizard: 1
   ShowSettings: 0
   DevRegionSetOnce: 0
