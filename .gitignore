@@ -97,3 +97,9 @@ InitTestScene*.unity*
 
 # Auto-generated scenes by play mode tests
 /[Aa]ssets/[Ii]nit[Tt]est[Ss]cene*.unity*
+
+# Photon Voice - kullanilmayan mobil/AR native lib'leri (PC oyunu)
+/Assets/Photon/PhotonVoice/PhotonVoiceLibs/iOS/
+/Assets/Photon/PhotonVoice/PhotonVoiceLibs/iOS.meta
+/Assets/Photon/PhotonVoice/PhotonVoiceLibs/VisionOS/
+/Assets/Photon/PhotonVoice/PhotonVoiceLibs/VisionOS.meta
