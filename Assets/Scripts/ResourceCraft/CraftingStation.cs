@@ -90,6 +90,33 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
         }
     }
 
+    // Bekleyen + aktif tüm craft'ları iptal eder ve harcanan kaynakları geri verir.
+    // (Önceden cancel kaynakları yutuyordu — TryCraft maliyeti enqueue anında düşüyor.)
+    public void CancelCrafts()
+    {
+        if (queue == null) return;
+
+        foreach (RecipeData recipe in queue.GetPendingRecipes())
+            RefundIngredients(recipe);
+
+        queue.CancelAll();
+    }
+
+    // Tarifteki malzemeleri EconomyManager'a geri ekler (iptal iadesi).
+    private void RefundIngredients(RecipeData recipe)
+    {
+        if (recipe == null || recipe.ingredients == null) return;
+
+        EconomyManager econ = EconomyManager.Instance;
+        if (econ == null) return;
+
+        foreach (RecipeIngredient ing in recipe.ingredients)
+        {
+            if (ing == null) continue;
+            econ.AddResource(ing.resourceType, ing.amount);
+        }
+    }
+
     // ── IUpgradeable ─────────────────────────────────────────────────────
     public UpgradeLevel CurrentLevel => level;
     public event Action<UpgradeLevel> OnUpgraded;

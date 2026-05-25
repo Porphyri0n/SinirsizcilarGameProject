@@ -38,6 +38,13 @@ public class CraftQueueManager : MonoBehaviour
         Progress = 0f;
     }
 
+    // İptal sırasında kaynak iadesi için bekleyen tüm tarifler: aktif olan + kuyruktakiler.
+    public IEnumerable<RecipeData> GetPendingRecipes()
+    {
+        if (CurrentRecipe != null) yield return CurrentRecipe;
+        foreach (RecipeData recipe in queue) yield return recipe;
+    }
+
     private void TryStartNext()
     {
         if (running != null) return;       // bir craft zaten çalışıyor
