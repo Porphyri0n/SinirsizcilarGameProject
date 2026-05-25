@@ -15,6 +15,7 @@ public class GamePhaseController : MonoBehaviour
     private GamePhase currentPhase = GamePhase.Prep;
     private float prepTimer;
     private int lastCompletedWave;
+    private bool gameOver;   // Kale yıkıldıktan sonra faz geçişlerini durdurur
 
     public GamePhase CurrentPhase => currentPhase;
     public float PrepTimeLeft => currentPhase == GamePhase.Prep ? prepTimer : 0f;
@@ -33,11 +34,13 @@ public class GamePhaseController : MonoBehaviour
     private void OnEnable()
     {
         EventBus.OnWaveEnd += HandleWaveEnd;
+        EventBus.OnGameLost += HandleGameLost;
     }
 
     private void OnDisable()
     {
         EventBus.OnWaveEnd -= HandleWaveEnd;
+        EventBus.OnGameLost -= HandleGameLost;
     }
 
     private void Start()
@@ -47,7 +50,7 @@ public class GamePhaseController : MonoBehaviour
 
     private void Update()
     {
-        if (currentPhase != GamePhase.Prep) return;
+        if (gameOver || currentPhase != GamePhase.Prep) return;
 
         prepTimer -= Time.deltaTime;
         if (prepTimer <= 0f)
@@ -73,7 +76,13 @@ public class GamePhaseController : MonoBehaviour
     private void HandleWaveEnd(int waveNumber)
     {
         lastCompletedWave = waveNumber;
+        if (gameOver) return;   // oyun bittiyse yeni prep'e dönme
         EnterPrep();
+    }
+
+    private void HandleGameLost(int survivedWaves)
+    {
+        gameOver = true;
     }
 
     // İleri wave'lerde daha kısa hazırlık süresi
