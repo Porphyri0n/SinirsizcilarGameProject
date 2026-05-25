@@ -24,6 +24,9 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
     private Quaternion netRotation;
     private bool netMoving;
     private bool netSprinting;
+    private Vector3 netVelocity;
+    private Vector3 lastReceivedPos;
+    private double lastNetworkTime;
 
     private float nextSendTime;
     private bool lastCarrying;
@@ -36,6 +39,7 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
 
         netPosition = transform.position;
         netRotation = transform.rotation;
+        lastReceivedPos = transform.position;
 
         // Saniyede NETWORK_SYNC_RATE'in tersi kadar serileştir (0.1 sn -> 10 Hz).
         PhotonNetwork.SerializationRate = Mathf.RoundToInt(1f / GameConstants.NETWORK_SYNC_RATE);
@@ -66,6 +70,10 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
 
     private void ApplyRemoteTransform()
     {
+        // Paketler arası hareketi tahmini hızla sürdür — hedefe yaklaşırken oluşan deselerasyon stutter'ını önler.
+        if (netMoving)
+            netPosition += netVelocity * Time.deltaTime;
+
         if ((transform.position - netPosition).sqrMagnitude > teleportDistance * teleportDistance)
             transform.position = netPosition;
         else
@@ -100,10 +108,22 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
         }
         else
         {
-            netPosition = (Vector3)stream.ReceiveNext();
+            Vector3 received = (Vector3)stream.ReceiveNext();
             netRotation = (Quaternion)stream.ReceiveNext();
             netMoving = (bool)stream.ReceiveNext();
             netSprinting = (bool)stream.ReceiveNext();
+
+            // Paketler arası hızı tahmin et (ekstrapolasyon için)
+            double now = PhotonNetwork.Time;
+            float interval = (float)(now - lastNetworkTime);
+            if (lastNetworkTime > 0d && interval > 0f)
+                netVelocity = (received - lastReceivedPos) / interval;
+            lastReceivedPos = received;
+            lastNetworkTime = now;
+
+            // Lag telafisi: paketin yolda geçirdiği süre kadar tahmini ileri taşı
+            float lag = Mathf.Max(0f, (float)(now - info.SentServerTime));
+            netPosition = received + netVelocity * lag;
         }
     }
 }
