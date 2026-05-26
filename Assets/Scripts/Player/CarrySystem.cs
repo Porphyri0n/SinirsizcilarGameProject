@@ -9,6 +9,7 @@ public class CarrySystem : MonoBehaviour
 {
     [SerializeField] private PlayerController playerController;
     [SerializeField] private PlayerInteraction interaction;   // teslim hedefini (craft ocağı) bulmak için
+    [SerializeField] private PlayerHealth health;             // ölünce taşınan eşyayı bırakmak için
     [SerializeField] private Transform holdPoint;             // Eşya taşınırken buraya tutturulur
     [SerializeField] private float dropForwardDistance = 1f;
 
@@ -24,6 +25,18 @@ public class CarrySystem : MonoBehaviour
             playerController = GetComponent<PlayerController>();
         if (interaction == null)
             interaction = GetComponent<PlayerInteraction>();
+        if (health == null)
+            health = GetComponent<PlayerHealth>();
+    }
+
+    private void OnEnable()
+    {
+        if (health != null) health.OnDeath += HandleDeath;
+    }
+
+    private void OnDisable()
+    {
+        if (health != null) health.OnDeath -= HandleDeath;
     }
 
     // Ağır eşya elle alınamaz (el arabası gerekir), elde eşya varken yenisi alınamaz.
@@ -51,8 +64,24 @@ public class CarrySystem : MonoBehaviour
             ? target.transform.position
             : transform.position + transform.forward * dropForwardDistance;
 
+        ReleaseAt(dropPos);
+    }
+
+    // Ölüm gibi durumlarda: teslim hedefi aranmaz, eşya olduğumuz yere düşer.
+    public void ForceDrop()
+    {
+        if (!IsCarrying) return;
+        ReleaseAt(transform.position + transform.forward * dropForwardDistance);
+    }
+
+    // Tüm bırakma yolları buradan geçer ki hız çarpanı her durumda normale dönsün.
+    private void ReleaseAt(Vector3 dropPos)
+    {
         carried.OnDropped(dropPos);
         carried = null;
         playerController.SetSpeedMultiplier(1f);
     }
+
+    // Oyuncu ölünce taşıdığı eşyayı bırakır — yoksa revive sonrası hız 0.6'da takılı kalıyordu.
+    private void HandleDeath() => ForceDrop();
 }
