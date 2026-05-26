@@ -9,9 +9,16 @@ public class WaveSpawner : MonoBehaviour
     [SerializeField] private WaveData[] waves;
     [SerializeField] private Transform[] spawnPoints;       // Kuzeyde (denizde) spawn noktaları
     [SerializeField] private Transform shoreTarget;         // Gemilerin yöneleceği sahil noktası
+    [SerializeField] private ShipFormation formation;       // sahilde gemileri dağıtır (üst üste binmesin)
 
     private Coroutine spawnRoutine;
     private int nextSpawnPointIndex;
+    private int formationIndex;                             // o dalgada kaçıncı gemi — formasyon slotu için
+
+    private void Awake()
+    {
+        if (formation == null) formation = GetComponent<ShipFormation>();
+    }
 
     private void OnEnable()
     {
@@ -44,6 +51,7 @@ public class WaveSpawner : MonoBehaviour
     private IEnumerator SpawnWave(WaveData wave)
     {
         float interval = Mathf.Max(0.05f, wave.spawnInterval);
+        formationIndex = 0;     // her dalga formasyonu baştan dizilir
 
         if (wave.ships != null)
         {
@@ -71,8 +79,13 @@ public class WaveSpawner : MonoBehaviour
         GameObject ship = SpawnObject(shipData.prefab, pos, rot);
 
         ShipMovement movement = ship.GetComponent<ShipMovement>();
-        if (movement != null && shoreTarget != null)
-            movement.SetShoreTarget(shoreTarget);
+        if (movement != null)
+        {
+            if (shoreTarget != null) movement.SetShoreTarget(shoreTarget);
+            Vector3 offset = formation != null ? formation.GetOffset(formationIndex) : Vector3.zero;
+            movement.SetFormationOffset(offset);
+        }
+        formationIndex++;
 
         EventBus.FireShipSpawned(shipData.shipType);
     }
