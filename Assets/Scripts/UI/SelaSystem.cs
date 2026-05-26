@@ -18,6 +18,8 @@ public class SelaSystem : MonoBehaviour
     private readonly Dictionary<int, Transform> corpses = new Dictionary<int, Transform>();
     private readonly HashSet<int> playersInTower = new HashSet<int>();
     private readonly HashSet<int> activeReaders = new HashSet<int>();
+    // dead player id -> 0..1 okuma ilerlemesi (gosterge bunu okur)
+    private readonly Dictionary<int, float> selaProgress = new Dictionary<int, float>();
 
     private void Awake()
     {
@@ -50,6 +52,10 @@ public class SelaSystem : MonoBehaviour
     public bool HasCorpse(int deadPlayerId) => corpses.ContainsKey(deadPlayerId);
     public bool IsReaderInTower(int readerPlayerId) => playersInTower.Contains(readerPlayerId);
     public bool IsReading(int readerPlayerId) => activeReaders.Contains(readerPlayerId);
+
+    // Cesedin dirilis ilerlemesi (0..1). Aktif okuma yoksa false doner.
+    public bool TryGetSelaProgress(int deadPlayerId, out float normalized)
+        => selaProgress.TryGetValue(deadPlayerId, out normalized);
 
     public Vector3 GetCorpsePosition(int deadPlayerId)
     {
@@ -89,19 +95,23 @@ public class SelaSystem : MonoBehaviour
     private IEnumerator SelaCoroutine(int readerPid, int deadPid)
     {
         float t = 0f;
+        selaProgress[deadPid] = 0f;
         while (t < selaDuration)
         {
             // Okuyucu kuleden cikarsa veya ceset duserse okuma iptal
             if (!playersInTower.Contains(readerPid) || !corpses.ContainsKey(deadPid))
             {
                 activeReaders.Remove(readerPid);
+                selaProgress.Remove(deadPid);
                 yield break;
             }
             t += Time.deltaTime;
+            selaProgress[deadPid] = Mathf.Clamp01(t / selaDuration);
             yield return null;
         }
 
         activeReaders.Remove(readerPid);
+        selaProgress.Remove(deadPid);
         corpses.Remove(deadPid);
         EventBus.FirePlayerRevived(deadPid);
     }
@@ -142,5 +152,76 @@ public class SelaCorpseInteractable : MonoBehaviour, IInteractable
     {
         PhotonView view = player.GetComponent<PhotonView>();
         return view != null ? view.OwnerActorNr : player.GetInstanceID();
+    }
+}
+
+// Sela okunurken cesedin uzerinde beliren diegetic ilerleme cubugu (world space, billboard).
+// OnSelaStarted ile acilir, SelaSystem'den ilerlemeyi okuyup fill'i olcekler; revive ya da
+// okuma iptalinde gizlenir. fill: X ekseninde 0..1 olceklenen dolum nesnesi.
+[RequireComponent(typeof(Canvas))]
+public class SelaProgressIndicator : MonoBehaviour
+{
+    [SerializeField] private Transform fill;
+    [SerializeField] private float verticalOffset = 2.2f;
+
+    private Canvas canvas;
+    private Camera viewCamera;
+    private int deadPid = -1;
+
+    private void Awake()
+    {
+        canvas = GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        Hide();
+    }
+
+    private void OnEnable()
+    {
+        EventBus.OnSelaStarted += HandleSelaStarted;
+        EventBus.OnPlayerRevived += HandleRevived;
+    }
+
+    private void OnDisable()
+    {
+        EventBus.OnSelaStarted -= HandleSelaStarted;
+        EventBus.OnPlayerRevived -= HandleRevived;
+    }
+
+    private void HandleSelaStarted(int readerPid, int dead)
+    {
+        deadPid = dead;
+        if (canvas != null) canvas.enabled = true;
+    }
+
+    private void HandleRevived(int pid)
+    {
+        if (pid == deadPid) Hide();
+    }
+
+    private void LateUpdate()
+    {
+        if (deadPid < 0) return;
+        if (viewCamera == null) viewCamera = Camera.main;
+
+        SelaSystem sys = SelaSystem.Instance;
+        // Sistem yoksa veya okuma iptal olduysa (ilerleme kaydi yok) gizle
+        if (sys == null || viewCamera == null || !sys.TryGetSelaProgress(deadPid, out float p))
+        {
+            Hide();
+            return;
+        }
+
+        if (fill != null)
+            fill.localScale = new Vector3(Mathf.Clamp01(p), 1f, 1f);
+
+        transform.position = sys.GetCorpsePosition(deadPid) + Vector3.up * verticalOffset;
+        // Billboard — yuzu kameraya donuk
+        transform.rotation = Quaternion.LookRotation(transform.position - viewCamera.transform.position);
+    }
+
+    private void Hide()
+    {
+        deadPid = -1;
+        if (canvas != null) canvas.enabled = false;
     }
 }
