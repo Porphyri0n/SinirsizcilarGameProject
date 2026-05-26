@@ -76,7 +76,8 @@ public class RagdollController : MonoBehaviour
         {
             foreach (Collider c in ragdollColliders)
             {
-                if (c == null || c == mainCollider) continue;
+                // CharacterController da bir Collider'dır; loop açık bırakırsa ragdoll kemiklerine çarpıp cesedi zıplatıyordu
+                if (c == null || c == mainCollider || c == characterController) continue;
                 c.enabled = active;
             }
         }
