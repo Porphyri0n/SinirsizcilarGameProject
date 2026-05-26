@@ -11,6 +11,7 @@ public class GamePhaseController : MonoBehaviour
 
     [SerializeField] private float prepPhaseDuration = GameConstants.PREP_BASE_DURATION;
     [SerializeField] private float prepReductionPerWave = 5f;   // Her tamamlanan wave prep süresini bu kadar kısaltır
+    [SerializeField] private float bossPrepBonus = 20f;         // Boss wave öncesi verilen ekstra hazırlık süresi
 
     private GamePhase currentPhase = GamePhase.Prep;
     private float prepTimer;
@@ -85,11 +86,15 @@ public class GamePhaseController : MonoBehaviour
         gameOver = true;
     }
 
-    // İleri wave'lerde daha kısa hazırlık süresi
+    // İleri wave'lerde daha kısa hazırlık süresi; boss wave öncesi biraz daha uzun
     private float CurrentPrepDuration()
     {
         float reduced = prepPhaseDuration - prepReductionPerWave * lastCompletedWave;
-        return Mathf.Max(GameConstants.PREP_MIN_DURATION, reduced);
+        float duration = Mathf.Max(GameConstants.PREP_MIN_DURATION, reduced);
+        // Boss her BOSS_WAVE_INTERVAL wave'de bir gelir — hazırlanmak için fazladan zaman ver
+        if (WaveScaler.IsBossWave(UpcomingWave))
+            duration += bossPrepBonus;
+        return duration;
     }
 
     // Kervan CARAVAN_FIRST_WAVE'den itibaren her CARAVAN_INTERVAL wave'de bir gelir (3, 5, 7...).
