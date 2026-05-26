@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 
 // Haydut AI durumu — BanditNetSync int olarak ağ üzerinden taşır (animasyon/sync için).
-public enum BanditState { Idle, Chase, Attack }
+public enum BanditState { Idle, Chase, Attack, Retreat }
 
 // Haydut yapay zekası — basit state machine: Idle (ağaçtan çıkış) -> Chase -> Attack.
 // Varsayılan hedef en yakın canlı kervandır (CaravanController). Oyuncu araya girip haydutu
@@ -20,6 +20,7 @@ public class BanditAI : MonoBehaviour
     [SerializeField] private float playerAggroRange = 8f;   // vurulunca bu menzildeki en yakın oyuncuya döner
     [SerializeField] private float retargetInterval = 1f;   // hedef kaybolunca yeniden arama aralığı
     [SerializeField] private float turnSpeed = 10f;
+    [SerializeField] private float retreatTimeout = 4f;     // kervan yok olunca ağaçlara çekilme süresi
 
     [Header("Ağaçtan Çıkış")]
     [SerializeField] private float emergeDuration = 0.6f;   // Idle bekleme (çıkış animasyonu süresi)
@@ -32,6 +33,8 @@ public class BanditAI : MonoBehaviour
     private float stateTimer;
     private float lastAttackTime;
     private float nextRetargetTime;
+    private Vector3 spawnPosition;       // ağaçtan çıktığı nokta — geri çekilince buraya döner
+    private bool chasingPlayer;          // hedef kervan mı (false) oyuncu mu (true)
 
     private float MoveSpeed => data != null ? data.moveSpeed : 3f;
     private float AttackDamage => data != null ? data.attackDamage : 5f;
@@ -44,13 +47,16 @@ public class BanditAI : MonoBehaviour
 
     private void OnEnable()
     {
+        spawnPosition = transform.position;
         EnterIdle();
         if (health != null) health.OnHealthChanged += HandleDamaged;
+        EventBus.OnCaravanDestroyed += HandleCaravanDestroyed;
     }
 
     private void OnDisable()
     {
         if (health != null) health.OnHealthChanged -= HandleDamaged;
+        EventBus.OnCaravanDestroyed -= HandleCaravanDestroyed;
     }
 
     // Spawner Raider/Brute verisini buradan da geçebilir (BanditHealth.Configure ile aynı veri).
@@ -63,6 +69,7 @@ public class BanditAI : MonoBehaviour
             case BanditState.Idle: TickIdle(); break;
             case BanditState.Chase: TickChase(); break;
             case BanditState.Attack: TickAttack(); break;
+            case BanditState.Retreat: TickRetreat(); break;
         }
     }
 
@@ -122,6 +129,40 @@ public class BanditAI : MonoBehaviour
         }
     }
 
+    // ── Retreat: kervan yok oldu, ağaçlara geri çekil ───────────────────
+    // Kervanın peşindeki haydutlar baskını bırakıp geri çekilir; oyuncuyla
+    // çatışan haydut (chasingPlayer) yerinde kalıp dövüşmeye devam eder.
+    private void HandleCaravanDestroyed()
+    {
+        if (State == BanditState.Retreat) return;
+        if (chasingPlayer && TargetValid()) return;
+        EnterRetreat();
+    }
+
+    private void EnterRetreat()
+    {
+        State = BanditState.Retreat;
+        stateTimer = 0f;
+        target = null;
+        targetDamageable = null;
+    }
+
+    private void TickRetreat()
+    {
+        stateTimer += Time.deltaTime;
+        Vector3 toSpawn = Flat(spawnPosition - transform.position);
+
+        // Çıkış noktasına ulaşınca veya zaman aşımında sahneden kalk
+        if (toSpawn.sqrMagnitude <= 0.25f || stateTimer >= retreatTimeout)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        FaceDirection(toSpawn);
+        transform.position += toSpawn.normalized * MoveSpeed * Time.deltaTime;
+    }
+
     // ── Hedefleme ───────────────────────────────────────────────────────
     private bool TargetValid() => target != null && targetDamageable != null && targetDamageable.IsAlive;
 
@@ -157,6 +198,7 @@ public class BanditAI : MonoBehaviour
         }
 
         SetTarget(nearest, nearestDmg);
+        chasingPlayer = false;
     }
 
     // Vurulunca: menzildeki en yakın canlı oyuncuya dön (oyuncu araya girdi)
@@ -186,7 +228,9 @@ public class BanditAI : MonoBehaviour
         if (nearest == null) return;        // menzilde oyuncu yok, kervanda kal
 
         SetTarget(nearest, nearestDmg);
-        if (State == BanditState.Idle) State = BanditState.Chase;
+        chasingPlayer = true;
+        // Bekleyen ya da çekilen haydut, vurulunca oyuncuya döner
+        if (State == BanditState.Idle || State == BanditState.Retreat) State = BanditState.Chase;
     }
 
     private void SetTarget(Transform t, IDamageable dmg)
