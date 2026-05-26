@@ -18,6 +18,8 @@ public class Projectile : MonoBehaviour
     private bool launched;
     private float spawnTime;
     private GameObject owner;       // Kuleyi kullanan oyuncuya / kuleye geri vurmamak için
+    private Vector3 lastPosition;   // tunneling kontrolü — bir önceki frame konumu
+    private bool hasHit;            // tek isabet: sweep + OnTriggerEnter çift saymasın
 
     public bool Launched => launched;
     public float Damage => damage;
@@ -37,6 +39,8 @@ public class Projectile : MonoBehaviour
         this.owner = owner;
         spawnTime = Time.time;
         launched = true;
+        hasHit = false;
+        lastPosition = transform.position;
 
         rb.useGravity = useGravity;
         rb.linearVelocity = direction.normalized * speed;
@@ -54,21 +58,50 @@ public class Projectile : MonoBehaviour
             transform.rotation = Quaternion.LookRotation(rb.linearVelocity);
     }
 
+    // Hızlı mermiler (özellikle ok) bir karede hedefi atlayıp içinden geçebiliyordu.
+    // Önceki konumdan şimdikine ışın atıp aradaki çarpışmayı yakalarız (tunneling fix).
+    private void FixedUpdate()
+    {
+        if (!launched || hasHit) return;
+
+        Vector3 current = transform.position;
+        Vector3 step = current - lastPosition;
+        float dist = step.magnitude;
+
+        if (dist > 0.0001f &&
+            Physics.Raycast(lastPosition, step / dist, out RaycastHit hit, dist, hitMask, QueryTriggerInteraction.Collide))
+        {
+            if (!IsOwnerCollider(hit.collider))
+                ProcessHit(hit.collider, hit.point);
+        }
+
+        lastPosition = current;
+    }
+
     private void OnTriggerEnter(Collider other)
     {
-        if (!launched) return;
-        if (owner != null && other.transform.IsChildOf(owner.transform)) return;
+        if (!launched || hasHit) return;
+        if (IsOwnerCollider(other)) return;
         if (((1 << other.gameObject.layer) & hitMask) == 0) return;
 
-        Vector3 hitPoint = other.ClosestPoint(transform.position);
+        ProcessHit(other, other.ClosestPoint(transform.position));
+    }
+
+    // Sweep ve trigger yolları buradan geçer; hasHit çift isabeti engeller.
+    private void ProcessHit(Collider hit, Vector3 point)
+    {
+        hasHit = true;
 
         if (splashRadius > 0f)
-            ApplySplashDamage(hitPoint);
+            ApplySplashDamage(point);
         else
-            ApplySingleDamage(other, hitPoint);
+            ApplySingleDamage(hit, point);
 
         if (destroyOnHit) Destroy(gameObject);
     }
+
+    private bool IsOwnerCollider(Collider col)
+        => owner != null && col.transform.IsChildOf(owner.transform);
 
     private void ApplySingleDamage(Collider hit, Vector3 point)
     {
