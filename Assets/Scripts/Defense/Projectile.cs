@@ -90,25 +90,23 @@ public class Projectile : MonoBehaviour
     // Sweep ve trigger yolları buradan geçer; hasHit çift isabeti engeller.
     private void ProcessHit(Collider hit, Vector3 point)
     {
+        // Ölü/batan gemi hâlâ collider taşır; mermi ona takılmadan içinden geçip
+        // arkadaki canlı hedefe gitsin (yoksa atışlar ölü gemilerde boşa gidiyordu).
+        IDamageable target = hit.GetComponentInParent<IDamageable>();
+        if (target != null && !target.IsAlive) return;
+
         hasHit = true;
 
         if (splashRadius > 0f)
             ApplySplashDamage(point);
-        else
-            ApplySingleDamage(hit, point);
+        else if (target != null)
+            target.TakeDamage(damage, point);
 
         if (destroyOnHit) Destroy(gameObject);
     }
 
     private bool IsOwnerCollider(Collider col)
         => owner != null && col.transform.IsChildOf(owner.transform);
-
-    private void ApplySingleDamage(Collider hit, Vector3 point)
-    {
-        IDamageable target = hit.GetComponentInParent<IDamageable>();
-        if (target != null && target.IsAlive)
-            target.TakeDamage(damage, point);
-    }
 
     private void ApplySplashDamage(Vector3 center)
     {
