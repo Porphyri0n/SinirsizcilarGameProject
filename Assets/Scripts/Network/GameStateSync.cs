@@ -75,6 +75,29 @@ public class GameStateSync : MonoBehaviourPunCallbacks
 
     // ── Client: room property -> EventBus ───────────────────────────────
 
+    // Rejoin / geç katılım: live RPC'leri kaçıran client, odadaki mevcut
+    // property'lerden güncel durumu (phase, wave, castleHP) kurar.
+    public override void OnJoinedRoom()
+    {
+        if (AuthorityManager.IsHost) return;
+        ApplyRoomState();
+    }
+
+    private void ApplyRoomState()
+    {
+        if (PhotonNetwork.CurrentRoom == null) return;
+        Hashtable props = PhotonNetwork.CurrentRoom.CustomProperties;
+
+        if (props.TryGetValue(NetworkKeys.ROOM_PHASE, out object phase))
+            EventBus.FirePhaseChanged((GamePhase)(int)phase);
+
+        if (props.TryGetValue(NetworkKeys.ROOM_WAVE, out object wave))
+            EventBus.FireWaveStart((int)wave);
+
+        if (props.TryGetValue(NetworkKeys.ROOM_CASTLE_HP, out object hp))
+            EventBus.FireCastleDamaged((float)hp, GameConstants.CASTLE_MAX_HP);
+    }
+
     public override void OnRoomPropertiesUpdate(Hashtable changedProps)
     {
         if (AuthorityManager.IsHost) return;
