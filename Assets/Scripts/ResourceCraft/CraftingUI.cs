@@ -26,9 +26,17 @@ public class CraftingUI : MonoBehaviour
     [Header("Slotlar")]
     [SerializeField] private RecipeSlot[] slots;
 
+    [Header("Craft İlerleme")]
+    [SerializeField] private CraftQueueManager queue;       // aktif craft ilerlemesini okur
+    [SerializeField] private GameObject progressRoot;       // ilerleme çubuğu kökü (aç/kapa)
+    [SerializeField] private Image progressFill;            // dolum (Image type = Filled)
+    [SerializeField] private Text progressLabel;            // aktif tarif adı
+
     private Transform playerCache;
     private float nextRefreshAt;
     private bool boardVisible;
+    private bool progressVisible;
+    private RecipeData shownRecipe;
 
     private void OnEnable()
     {
@@ -36,6 +44,7 @@ public class CraftingUI : MonoBehaviour
         EventBus.OnResourceDeposited += HandleResourceChanged;
         if (station != null) station.OnUpgraded += HandleStationUpgraded;
         SetBoardVisible(false);
+        SetProgressVisible(false);
         BindSlots();
     }
 
@@ -55,6 +64,8 @@ public class CraftingUI : MonoBehaviour
             nextRefreshAt = Time.time + refreshInterval;
             RefreshSlots();
         }
+
+        UpdateCraftProgress();
     }
 
     private void UpdateVisibility()
@@ -89,6 +100,36 @@ public class CraftingUI : MonoBehaviour
     {
         boardVisible = visible;
         if (boardRoot != null) boardRoot.SetActive(visible);
+    }
+
+    // Craft sürerken çubuğu doldur, bitince gizle. Kuyruktan poll eder —
+    // OnCraftCompleted sırasında running henüz null olmadığı için event'e güvenmiyoruz.
+    private void UpdateCraftProgress()
+    {
+        if (queue == null) return;
+
+        bool active = queue.IsCrafting && queue.CurrentRecipe != null;
+        if (active != progressVisible) SetProgressVisible(active);
+        if (!active)
+        {
+            shownRecipe = null;
+            return;
+        }
+
+        // Sıradaki craft'a geçince etiketi tazele (her frame string üretmemek için)
+        if (queue.CurrentRecipe != shownRecipe)
+        {
+            shownRecipe = queue.CurrentRecipe;
+            if (progressLabel != null) progressLabel.text = shownRecipe.recipeName;
+        }
+
+        if (progressFill != null) progressFill.fillAmount = queue.Progress;
+    }
+
+    private void SetProgressVisible(bool visible)
+    {
+        progressVisible = visible;
+        if (progressRoot != null) progressRoot.SetActive(visible);
     }
 
     private void BindSlots()
