@@ -17,6 +17,8 @@ public class TowerAiming : MonoBehaviour
     [Header("Menzil Göstergesi (opsiyonel)")]
     [SerializeField] private LineRenderer rangeLine;    // Hedef noktaya çizgi
     [SerializeField] private bool showRange = true;
+    [SerializeField] private Color validColor = Color.green;    // menzilde, canlı hedef → geçerli atış
+    [SerializeField] private Color invalidColor = Color.red;    // menzil dışı veya hedef yok
 
     private void Awake()
     {
@@ -33,28 +35,44 @@ public class TowerAiming : MonoBehaviour
         if (tower == null || !tower.IsOccupied) return;
         if (towerCamera == null || aimPivot == null) return;
 
-        Vector3 target = GetAimPoint();
+        Vector3 target = GetAimPoint(out IDamageable aimed);
         Vector3 dir = target - aimPivot.position;
         if (dir.sqrMagnitude < 0.0001f) return;
 
         tower.Operate(dir);
-        UpdateRangeLine(target);
+        UpdateRangeLine(target, IsValidShot(target, aimed));
     }
 
     // Mouse → kamera ray → ilk çarpılan yüzey; ıskalarsa maxAimDistance kadar ileri nokta.
-    private Vector3 GetAimPoint()
+    // aimed: çarpılan nesnedeki IDamageable (varsa) — atış geçerliliği için.
+    private Vector3 GetAimPoint(out IDamageable aimed)
     {
+        aimed = null;
         Ray ray = towerCamera.ScreenPointToRay(Input.mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask))
+        {
+            aimed = hit.collider.GetComponentInParent<IDamageable>();
             return hit.point;
+        }
         return ray.origin + ray.direction * maxAimDistance;
     }
 
-    private void UpdateRangeLine(Vector3 target)
+    // Geçerli atış: hedef kule menzili içinde ve canlı bir IDamageable'a nişanlı.
+    private bool IsValidShot(Vector3 target, IDamageable aimed)
+    {
+        if (Vector3.Distance(aimPivot.position, target) > tower.Range) return false;
+        return aimed != null && aimed.IsAlive;
+    }
+
+    private void UpdateRangeLine(Vector3 target, bool valid)
     {
         if (!showRange || rangeLine == null) return;
         rangeLine.positionCount = 2;
         rangeLine.SetPosition(0, aimPivot.position);
         rangeLine.SetPosition(1, target);
+
+        Color c = valid ? validColor : invalidColor;
+        rangeLine.startColor = c;
+        rangeLine.endColor = c;
     }
 }

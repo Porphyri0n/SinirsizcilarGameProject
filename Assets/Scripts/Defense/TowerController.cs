@@ -37,7 +37,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     private float FireInterval => (data != null && data.fireRate > 0f) ? 1f / data.fireRate : 1f;
     private float Damage => data != null ? data.damage : GameConstants.SWORD_BASE_DAMAGE;
     private float SplashRadius => data != null ? data.splashRadius : 0f;
-    private float Range => data != null ? data.range : 30f;
+    public float Range => data != null ? data.range : 30f;
 
     // Cannon parabolik (true), Archer düz (false). Alt sınıf belirler.
     protected virtual bool ProjectileUsesGravity => false;
