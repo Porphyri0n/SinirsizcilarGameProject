@@ -23,6 +23,8 @@ public class BossShip : ShipBase
     [SerializeField] private float zigzagFrequency = 0.5f;
 
     private ShipMovement movement;
+    private ShipHealth health;          // boss prefabinda damage'i bu component aliyor olabilir
+    private bool lootDropped;           // loot iki olum yolundan tek sefer dussun
     private float enableTime;
 
     // Tip her zaman Boss — shipData yanlis bile olsa dogru rapor edilsin
@@ -43,14 +45,21 @@ public class BossShip : ShipBase
         base.OnEnable();
         currentHealth = EffectiveMaxHealth;
         enableTime = Time.time;
+        lootDropped = false;
 
         if (movement == null) movement = GetComponent<ShipMovement>();
         if (movement != null) movement.OnReachedShore += HandleReachedShore;
+
+        // Boss ayni objede ShipHealth da tasiyabilir (ShipNetSync onu kullanir); hasar oraya
+        // gidince ShipBase.OnSink atlanip loot dusmuyordu. Onun olumune de baglan.
+        if (health == null) health = GetComponent<ShipHealth>();
+        if (health != null) health.OnDeath += HandleHealthDeath;
     }
 
     private void OnDisable()
     {
         if (movement != null) movement.OnReachedShore -= HandleReachedShore;
+        if (health != null) health.OnDeath -= HandleHealthDeath;
     }
 
     private void Update()
@@ -96,9 +105,19 @@ public class BossShip : ShipBase
         return go != null ? go.GetComponent<IDamageable>() : null;
     }
 
-    // Batinca cevreye bonus loot — daire seklinde dagilir
-    protected override void OnSink()
+    // ShipBase hasar yolu: batinca bonus loot.
+    protected override void OnSink() => DropBonusLoot();
+
+    // ShipHealth hasar yolu: hasar o componente gidince de loot dussun.
+    private void HandleHealthDeath() => DropBonusLoot();
+
+    // Batinca cevreye bonus loot — daire seklinde dagilir. Hangi olum yolu tetiklerse
+    // tetiklesin tek sefer calisir (cift drop engellenir).
+    private void DropBonusLoot()
     {
+        if (lootDropped) return;
+        lootDropped = true;
+
         Vector3 center = transform.position;
         int count = Mathf.Max(1, bonusLootCount);
 
