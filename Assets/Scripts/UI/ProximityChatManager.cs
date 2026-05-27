@@ -58,7 +58,10 @@ public class ProximityChatManager : MonoBehaviour
         if (distance >= range) return 0f;
         if (distance <= GameConstants.VOICE_FALLOFF_START) return 1f;
 
-        return Mathf.Clamp01(1f - distance / range);
+        // Falloff bölgesi FALLOFF_START..range arası 1..0'a eşlenir. Eski "1 - d/range"
+        // falloff başında sesi birden 0.5'e düşürüp kademeyi bozuyordu.
+        float falloffRange = range - GameConstants.VOICE_FALLOFF_START;
+        return Mathf.Clamp01((range - distance) / falloffRange);
     }
 
     private void HandleTowerEntered(int playerId, DefenseType towerType) => playersInTower.Add(playerId);
