@@ -11,10 +11,12 @@ public class GamePhaseController : MonoBehaviour
 
     [SerializeField] private float prepPhaseDuration = GameConstants.PREP_BASE_DURATION;
     [SerializeField] private float prepReductionPerWave = 5f;   // Her tamamlanan wave prep süresini bu kadar kısaltır
+    [SerializeField] private float bossPrepBonus = 20f;         // Boss wave öncesi verilen ekstra hazırlık süresi
 
     private GamePhase currentPhase = GamePhase.Prep;
     private float prepTimer;
     private int lastCompletedWave;
+    private bool gameOver;   // Kale yıkıldıktan sonra faz geçişlerini durdurur
 
     public GamePhase CurrentPhase => currentPhase;
     public float PrepTimeLeft => currentPhase == GamePhase.Prep ? prepTimer : 0f;
@@ -33,11 +35,13 @@ public class GamePhaseController : MonoBehaviour
     private void OnEnable()
     {
         EventBus.OnWaveEnd += HandleWaveEnd;
+        EventBus.OnGameLost += HandleGameLost;
     }
 
     private void OnDisable()
     {
         EventBus.OnWaveEnd -= HandleWaveEnd;
+        EventBus.OnGameLost -= HandleGameLost;
     }
 
     private void Start()
@@ -47,7 +51,7 @@ public class GamePhaseController : MonoBehaviour
 
     private void Update()
     {
-        if (currentPhase != GamePhase.Prep) return;
+        if (gameOver || currentPhase != GamePhase.Prep) return;
 
         prepTimer -= Time.deltaTime;
         if (prepTimer <= 0f)
@@ -73,14 +77,24 @@ public class GamePhaseController : MonoBehaviour
     private void HandleWaveEnd(int waveNumber)
     {
         lastCompletedWave = waveNumber;
+        if (gameOver) return;   // oyun bittiyse yeni prep'e dönme
         EnterPrep();
     }
 
-    // İleri wave'lerde daha kısa hazırlık süresi
+    private void HandleGameLost(int survivedWaves)
+    {
+        gameOver = true;
+    }
+
+    // İleri wave'lerde daha kısa hazırlık süresi; boss wave öncesi biraz daha uzun
     private float CurrentPrepDuration()
     {
         float reduced = prepPhaseDuration - prepReductionPerWave * lastCompletedWave;
-        return Mathf.Max(GameConstants.PREP_MIN_DURATION, reduced);
+        float duration = Mathf.Max(GameConstants.PREP_MIN_DURATION, reduced);
+        // Boss her BOSS_WAVE_INTERVAL wave'de bir gelir — hazırlanmak için fazladan zaman ver
+        if (WaveScaler.IsBossWave(UpcomingWave))
+            duration += bossPrepBonus;
+        return duration;
     }
 
     // Kervan CARAVAN_FIRST_WAVE'den itibaren her CARAVAN_INTERVAL wave'de bir gelir (3, 5, 7...).

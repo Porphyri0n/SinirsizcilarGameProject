@@ -15,6 +15,7 @@ public class WaveManager : MonoBehaviour
     private int remainingShips;
     private WavePlan currentPlan;
     private bool waveActive;
+    private bool gameOver;   // Kale yıkıldıktan sonra yeni wave başlatmayı durdurur
 
     public int CurrentWave => currentWave;
     public int RemainingShips => remainingShips;
@@ -32,12 +33,14 @@ public class WaveManager : MonoBehaviour
     {
         EventBus.OnPhaseChanged += HandlePhaseChanged;
         EventBus.OnShipDestroyed += HandleShipDestroyed;
+        EventBus.OnGameLost += HandleGameLost;
     }
 
     private void OnDisable()
     {
         EventBus.OnPhaseChanged -= HandlePhaseChanged;
         EventBus.OnShipDestroyed -= HandleShipDestroyed;
+        EventBus.OnGameLost -= HandleGameLost;
     }
 
     private void HandlePhaseChanged(GamePhase phase)
@@ -49,11 +52,19 @@ public class WaveManager : MonoBehaviour
     // Bir sonraki wave'i baslatir: planlama + event yayinlama.
     public void StartNextWave()
     {
+        if (gameOver || waveActive) return;   // oyun bittiyse / wave zaten aktifken yeni wave başlatma
+
         currentWave++;
         currentPlan = WaveScaler.Plan(currentWave);
         remainingShips = currentPlan.TotalShips;
-        waveActive = true;
 
+        if (remainingShips <= 0)   // boş wave: sayaç hiç 0'a inemez, soft-lock olmasın diye hemen bitir
+        {
+            EventBus.FireWaveEnd(currentWave);
+            return;
+        }
+
+        waveActive = true;
         EventBus.FireWaveStart(currentWave);
         if (currentPlan.isBossWave)
             EventBus.FireBossWaveStart(currentWave);
@@ -69,5 +80,10 @@ public class WaveManager : MonoBehaviour
             waveActive = false;
             EventBus.FireWaveEnd(currentWave);
         }
+    }
+
+    private void HandleGameLost(int survivedWaves)
+    {
+        gameOver = true;
     }
 }

@@ -39,7 +39,16 @@ public class ObjectPooler : MonoBehaviour
         if (prefab == null) return null;
 
         Queue<GameObject> pool = GetPool(prefab.name);
-        GameObject obj = pool.Count > 0 ? pool.Dequeue() : Instantiate(prefab);
+
+        // Havuzdaki nesne dışarıdan Destroy edilmişse Queue'da "yok edilmiş" referans kalır;
+        // respawn'da onu kullanmak null reference veriyordu. Geçersizleri atla, havuz tükenirse yeni üret.
+        GameObject obj = null;
+        while (obj == null && pool.Count > 0)
+            obj = pool.Dequeue();
+
+        if (obj == null)
+            obj = Instantiate(prefab);
+
         instanceKeys[obj] = prefab.name;
 
         obj.transform.SetPositionAndRotation(position, rotation);
