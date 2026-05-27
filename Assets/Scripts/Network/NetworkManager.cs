@@ -22,6 +22,9 @@ public class NetworkManager : MonoBehaviourPunCallbacks
     [SerializeField] private int maxReconnectAttempts = 3;
     [SerializeField] private float reconnectDelay = 2f;          // her deneme arası bekleme (sn)
 
+    [Header("Sync Hızı")]
+    [SerializeField] private int sendRateMultiplier = 2;         // SendRate = serializationRate × bu (RPC/flush daha sık)
+
     /// <summary>Aynı odadaki maksimum oyuncu sayısı (GameConstants'tan).</summary>
     public byte MaxPlayersPerRoom => GameConstants.MAX_PLAYERS_PER_ROOM;
 
@@ -53,6 +56,18 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         // Host (MasterClient) sahne geçişlerini yönetir, client'lar otomatik takip eder.
         PhotonNetwork.AutomaticallySyncScene = true;
         PhotonNetwork.GameVersion = gameVersion;
+        ConfigureNetworkRates();
+    }
+
+    // Serileştirme ve gönderim hızını NETWORK_SYNC_RATE'ten merkezi olarak ayarlar.
+    // SerializationRate transform stream'ini sürer (~10 Hz); SendRate flush/RPC sıklığıdır,
+    // RPC'ler gecikmesin diye serileştirmenin katı tutulur. Eskiden bu global ayar her oyuncu
+    // spawn'ında PlayerNetSync.Awake'te tekrar yapılıyordu — tek yere taşındı.
+    private void ConfigureNetworkRates()
+    {
+        int serializationRate = Mathf.Max(1, Mathf.RoundToInt(1f / GameConstants.NETWORK_SYNC_RATE));
+        PhotonNetwork.SerializationRate = serializationRate;
+        PhotonNetwork.SendRate = serializationRate * Mathf.Max(1, sendRateMultiplier);
     }
 
     private void Start()

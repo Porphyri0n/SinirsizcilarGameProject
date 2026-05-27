@@ -40,9 +40,7 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
         netPosition = transform.position;
         netRotation = transform.rotation;
         lastReceivedPos = transform.position;
-
-        // Saniyede NETWORK_SYNC_RATE'in tersi kadar serileştir (0.1 sn -> 10 Hz).
-        PhotonNetwork.SerializationRate = Mathf.RoundToInt(1f / GameConstants.NETWORK_SYNC_RATE);
+        // Serileştirme/gönderim hızı NetworkManager'da merkezi ayarlanır (RPC frequency optimize).
     }
 
     private void Update()
