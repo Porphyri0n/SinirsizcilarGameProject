@@ -21,12 +21,16 @@ public class WinLoseCondition : MonoBehaviour
     private void OnEnable()
     {
         EventBus.OnCastleDestroyed += HandleCastleDestroyed;
+        EventBus.OnGameRestart += HandleGameRestart;
     }
 
     private void OnDisable()
     {
         EventBus.OnCastleDestroyed -= HandleCastleDestroyed;
+        EventBus.OnGameRestart -= HandleGameRestart;
     }
+
+    private void HandleGameRestart() => gameEnded = false;
 
     private void HandleCastleDestroyed()
     {

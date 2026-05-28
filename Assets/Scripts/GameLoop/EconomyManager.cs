@@ -20,13 +20,17 @@ public class EconomyManager : MonoBehaviour
     {
         EventBus.OnResourceReceived += HandleResourceReceived;
         EventBus.OnResourceDeposited += HandleResourceDeposited;
+        EventBus.OnGameRestart += HandleGameRestart;
     }
 
     private void OnDisable()
     {
         EventBus.OnResourceReceived -= HandleResourceReceived;
         EventBus.OnResourceDeposited -= HandleResourceDeposited;
+        EventBus.OnGameRestart -= HandleGameRestart;
     }
+
+    private void HandleGameRestart() => globalStock.Clear();
 
     public int GetStock(ResourceType type) => globalStock.TryGetValue(type, out int amount) ? amount : 0;
 

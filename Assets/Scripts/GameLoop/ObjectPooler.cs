@@ -17,6 +17,29 @@ public class ObjectPooler : MonoBehaviour
         Instance = this;
     }
 
+    private void OnEnable()
+    {
+        EventBus.OnGameRestart += HandleGameRestart;
+    }
+
+    private void OnDisable()
+    {
+        EventBus.OnGameRestart -= HandleGameRestart;
+    }
+
+    // Aktif tum havuz nesnelerini geri toplar — sahneden gemiler / projeler temizlenir.
+    private void HandleGameRestart()
+    {
+        foreach (var kv in instanceKeys)
+        {
+            GameObject obj = kv.Key;
+            if (obj == null) continue;
+            obj.SetActive(false);
+            obj.transform.SetParent(transform);
+            GetPool(kv.Value).Enqueue(obj);
+        }
+    }
+
     // Havuzu önceden doldur — oyun başında çağır
     public void Prewarm(GameObject prefab, int count)
     {

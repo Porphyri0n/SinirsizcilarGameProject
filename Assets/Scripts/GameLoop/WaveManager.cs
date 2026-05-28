@@ -34,6 +34,7 @@ public class WaveManager : MonoBehaviour
         EventBus.OnPhaseChanged += HandlePhaseChanged;
         EventBus.OnShipDestroyed += HandleShipDestroyed;
         EventBus.OnGameLost += HandleGameLost;
+        EventBus.OnGameRestart += HandleGameRestart;
     }
 
     private void OnDisable()
@@ -41,6 +42,16 @@ public class WaveManager : MonoBehaviour
         EventBus.OnPhaseChanged -= HandlePhaseChanged;
         EventBus.OnShipDestroyed -= HandleShipDestroyed;
         EventBus.OnGameLost -= HandleGameLost;
+        EventBus.OnGameRestart -= HandleGameRestart;
+    }
+
+    private void HandleGameRestart()
+    {
+        currentWave = startingWave;
+        remainingShips = 0;
+        currentPlan = default;
+        waveActive = false;
+        gameOver = false;
     }
 
     private void HandlePhaseChanged(GamePhase phase)
