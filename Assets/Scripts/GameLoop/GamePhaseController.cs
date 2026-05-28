@@ -36,12 +36,21 @@ public class GamePhaseController : MonoBehaviour
     {
         EventBus.OnWaveEnd += HandleWaveEnd;
         EventBus.OnGameLost += HandleGameLost;
+        EventBus.OnGameRestart += HandleGameRestart;
     }
 
     private void OnDisable()
     {
         EventBus.OnWaveEnd -= HandleWaveEnd;
         EventBus.OnGameLost -= HandleGameLost;
+        EventBus.OnGameRestart -= HandleGameRestart;
+    }
+
+    private void HandleGameRestart()
+    {
+        gameOver = false;
+        lastCompletedWave = 0;
+        EnterPrep();
     }
 
     private void Start()

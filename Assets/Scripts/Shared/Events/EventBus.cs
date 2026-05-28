@@ -121,6 +121,11 @@ public static class EventBus
     public static event Action<int> OnGameLost;
     public static void FireGameLost(int survivedWaves) => OnGameLost?.Invoke(survivedWaves);
 
+    // ── GAME RESTART ────────────────────────────────────────────────────
+    // Tüm sistemler bunu dinleyip kendi state'ini sıfırlar.
+    public static event Action OnGameRestart;
+    public static void FireGameRestart() => OnGameRestart?.Invoke();
+
     // ── CLEANUP ─────────────────────────────────────────────────────────
     public static void ClearAll()
     {
@@ -157,5 +162,6 @@ public static class EventBus
         OnSelaStarted = null;
         OnWheelbarrowUpgraded = null;
         OnGameLost = null;
+        OnGameRestart = null;
     }
 }

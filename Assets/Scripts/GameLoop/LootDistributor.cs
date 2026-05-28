@@ -42,12 +42,20 @@ public class LootDistributor : MonoBehaviour
     {
         EventBus.OnWaveStart += HandleWaveStart;
         EventBus.OnWaveEnd += HandleWaveEnd;
+        EventBus.OnGameRestart += HandleGameRestart;
     }
 
     private void OnDisable()
     {
         EventBus.OnWaveStart -= HandleWaveStart;
         EventBus.OnWaveEnd -= HandleWaveEnd;
+        EventBus.OnGameRestart -= HandleGameRestart;
+    }
+
+    private void HandleGameRestart()
+    {
+        tracking = false;
+        castleHpAtWaveStart = 0f;
     }
 
     private void HandleWaveStart(int waveNumber)

@@ -25,6 +25,23 @@ public class CastleHealth : MonoBehaviour, IDamageable
         currentHealth = maxHealth;
     }
 
+    private void OnEnable()
+    {
+        EventBus.OnGameRestart += HandleGameRestart;
+    }
+
+    private void OnDisable()
+    {
+        EventBus.OnGameRestart -= HandleGameRestart;
+    }
+
+    private void HandleGameRestart()
+    {
+        destroyed = false;
+        currentHealth = maxHealth;
+        EventBus.FireCastleDamaged(currentHealth, maxHealth);
+    }
+
     public void TakeDamage(float amount, Vector3 hitPoint)
     {
         if (!IsAlive || amount <= 0f) return;
