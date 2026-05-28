@@ -16,6 +16,12 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float rotationSpeed = 12f;
 
+    [Header("His Polish")]
+    [SerializeField] private float accelerationTime = 0.12f;   // hizin hedef hiza ulasma suresi (yumusatma)
+    [SerializeField] private float directionSmoothing = 16f;   // yon degisikliklerini yumusatir (daha buyuk = daha cevik)
+    [SerializeField] private float coyoteTime = 0.1f;          // yerden ayrildiktan sonra ziplamaya izin verilen sure
+    [SerializeField] private float jumpBufferTime = 0.1f;      // yere inmeden once basilan ziplama input'unu hatirla
+
     [Header("Referanslar")]
     [SerializeField] private Transform cameraTransform;
 
@@ -23,9 +29,17 @@ public class PlayerController : MonoBehaviour
     private Vector3 verticalVelocity;            // Sadece dikey hız (yerçekimi + zıplama)
     private float speedMultiplier = 1f;          // CarrySystem vb. için hız ölçekleyici (1 = normal)
 
+    private Vector3 smoothedMoveDir;             // Yon yumusatma icin
+    private float currentSpeed;                  // SmoothDamp ile yumusatilmis yatay hiz
+    private float speedDampVel;
+    private float coyoteCounter;
+    private float jumpBufferCounter;
+    private bool wasGrounded;
+
     public bool IsGrounded => controller.isGrounded;
     public bool IsSprinting { get; private set; }
     public bool IsMoving { get; private set; }
+    public bool JustLanded { get; private set; }   // Bir karelik bayrak — ses/efekt icin
 
     private void Awake()
     {
@@ -51,9 +65,11 @@ public class PlayerController : MonoBehaviour
         IsMoving = input.sqrMagnitude > 0.01f;
         IsSprinting = IsMoving && Input.GetKey(KeyCode.LeftShift);
 
-        float speed = (IsSprinting ? sprintSpeed : moveSpeed) * speedMultiplier;
+        float targetSpeed = IsMoving ? (IsSprinting ? sprintSpeed : moveSpeed) * speedMultiplier : 0f;
+        // Hizi anlik degil yumusak yaklastir — kalkis ve durus daha agirlikli hissediyor
+        currentSpeed = Mathf.SmoothDamp(currentSpeed, targetSpeed, ref speedDampVel, accelerationTime);
 
-        Vector3 moveDir = Vector3.zero;
+        Vector3 rawDir = Vector3.zero;
         if (IsMoving)
         {
             // Kameraya göre hareket yönü (3rd person)
@@ -64,29 +80,47 @@ public class PlayerController : MonoBehaviour
             camForward.Normalize();
             camRight.Normalize();
 
-            moveDir = (camForward * input.z + camRight * input.x).normalized;
+            rawDir = (camForward * input.z + camRight * input.x).normalized;
 
             // Karakteri hareket ettiği yöne döndür
-            Quaternion targetRotation = Quaternion.LookRotation(moveDir);
+            Quaternion targetRotation = Quaternion.LookRotation(rawDir);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
 
-        controller.Move(moveDir * speed * Time.deltaTime);
+        // Yon degisikliklerini de yumusat (ani 180 donuste savrulma hissi azalir)
+        smoothedMoveDir = Vector3.Lerp(smoothedMoveDir, rawDir, directionSmoothing * Time.deltaTime);
+
+        controller.Move(smoothedMoveDir * currentSpeed * Time.deltaTime);
     }
 
     private void HandleGravityAndJump()
     {
-        if (controller.isGrounded)
-        {
-            if (verticalVelocity.y < 0f)
-                verticalVelocity.y = -2f;   // Yere yapışık kalması için küçük negatif değer
+        bool grounded = controller.isGrounded;
 
-            if (Input.GetKeyDown(KeyCode.Space))
-                verticalVelocity.y = jumpForce;
+        // Coyote: yerden ayrildiktan sonra kisa sure ziplama hala kabul edilir
+        if (grounded) coyoteCounter = coyoteTime;
+        else coyoteCounter -= Time.deltaTime;
+
+        // Jump buffer: input erken basildiysa yere indikten sonra hala gecerli sayilir
+        if (Input.GetKeyDown(KeyCode.Space)) jumpBufferCounter = jumpBufferTime;
+        else jumpBufferCounter -= Time.deltaTime;
+
+        if (grounded && verticalVelocity.y < 0f)
+            verticalVelocity.y = -2f;   // Yere yapışık kalması için küçük negatif değer
+
+        if (jumpBufferCounter > 0f && coyoteCounter > 0f)
+        {
+            verticalVelocity.y = jumpForce;
+            jumpBufferCounter = 0f;
+            coyoteCounter = 0f;
         }
 
         verticalVelocity.y += gravity * Time.deltaTime;
         controller.Move(verticalVelocity * Time.deltaTime);
+
+        // Inis tespiti — havada degildim, simdi yerdeyim → bir karelik flag
+        JustLanded = grounded && !wasGrounded;
+        wasGrounded = grounded;
     }
 
     /// <summary>Hareket hızını ölçekler (örn. eşya taşırken CARRY_SPEED_MULTIPLIER). 1 = normal hız.</summary>
