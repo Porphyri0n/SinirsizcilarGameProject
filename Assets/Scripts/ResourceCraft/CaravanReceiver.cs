@@ -13,7 +13,7 @@ public class CaravanReceiver : MonoBehaviour
     private void Awake()
     {
         if (storage == null)
-            storage = FindObjectOfType<ResourceStorage>();
+            storage = FindFirstObjectByType<ResourceStorage>();
     }
 
     private void OnEnable()
