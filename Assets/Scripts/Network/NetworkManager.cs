@@ -1,29 +1,32 @@
 using System;
+using System.Threading.Tasks;
 using UnityEngine;
-using Photon.Pun;
-using Photon.Realtime;
+using Unity.Netcode;
+using Unity.Services.Core;
+using Unity.Services.Authentication;
+
+public enum DisconnectCause
+{
+    None,
+    Exception,
+    ServerDown,
+    ClientDisconnect,
+    Timeout
+}
 
 /// <summary>
-/// Photon PUN 2 bağlantı yönetimi — Singleton.
-/// Master server'a bağlanır, region ayarını yapar ve bağlantı callback'lerini yönetir.
-/// Doğrudan EventBus event'i fire etmez; bağlantı durumunu kendi event'leri ile bildirir.
+/// Unity Netcode & Services bağlantı yönetimi — Singleton.
+/// Unity Services ve Authentication'ı başlatır, bağlantı durumlarını yönetir.
 /// </summary>
-public class NetworkManager : MonoBehaviourPunCallbacks
+public class NetworkManager : MonoBehaviour
 {
     public static NetworkManager Instance { get; private set; }
 
-    [Header("Photon Ayarları")]
-    [SerializeField] private string gameVersion = "1.0";
-    [SerializeField] private string fixedRegion = "eu";        // Boş bırakılırsa Photon en iyi region'u seçer
+    [Header("Ayarlar")]
     [SerializeField] private bool connectOnStart = true;
-
-    [Header("Reconnect")]
     [SerializeField] private bool autoReconnect = true;          // beklenmedik kopmada otomatik yeniden bağlan
     [SerializeField] private int maxReconnectAttempts = 3;
     [SerializeField] private float reconnectDelay = 2f;          // her deneme arası bekleme (sn)
-
-    [Header("Sync Hızı")]
-    [SerializeField] private int sendRateMultiplier = 2;         // SendRate = serializationRate × bu (RPC/flush daha sık)
 
     /// <summary>Aynı odadaki maksimum oyuncu sayısı (GameConstants'tan).</summary>
     public byte MaxPlayersPerRoom => GameConstants.MAX_PLAYERS_PER_ROOM;
@@ -41,6 +44,7 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
     private int reconnectAttempts;
     private bool intentionalDisconnect;   // DisconnectFromServer çağrıldıysa reconnect denenmez
+    private bool isInitializing;
 
     private void Awake()
     {
@@ -52,78 +56,96 @@ public class NetworkManager : MonoBehaviourPunCallbacks
 
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
-        // Host (MasterClient) sahne geçişlerini yönetir, client'lar otomatik takip eder.
-        PhotonNetwork.AutomaticallySyncScene = true;
-        PhotonNetwork.GameVersion = gameVersion;
-        ConfigureNetworkRates();
     }
 
-    // Serileştirme ve gönderim hızını NETWORK_SYNC_RATE'ten merkezi olarak ayarlar.
-    // SerializationRate transform stream'ini sürer (~10 Hz); SendRate flush/RPC sıklığıdır,
-    // RPC'ler gecikmesin diye serileştirmenin katı tutulur. Eskiden bu global ayar her oyuncu
-    // spawn'ında PlayerNetSync.Awake'te tekrar yapılıyordu — tek yere taşındı.
-    private void ConfigureNetworkRates()
-    {
-        int serializationRate = Mathf.Max(1, Mathf.RoundToInt(1f / GameConstants.NETWORK_SYNC_RATE));
-        PhotonNetwork.SerializationRate = serializationRate;
-        PhotonNetwork.SendRate = serializationRate * Mathf.Max(1, sendRateMultiplier);
-    }
-
-    private void Start()
+    private async void Start()
     {
         if (connectOnStart)
-            ConnectToServer();
+            await ConnectToServerAsync();
     }
 
-    /// <summary>Photon master server'a bağlanır. Zaten bağlıysa hiçbir şey yapmaz.</summary>
-    public void ConnectToServer()
+    /// <summary>Unity Services & Authentication master bağlantısını gerçekleştirir.</summary>
+    public async void ConnectToServer()
     {
-        if (PhotonNetwork.IsConnected)
+        await ConnectToServerAsync();
+    }
+
+    public async Task ConnectToServerAsync()
+    {
+        if (IsConnectedToMaster || isInitializing)
             return;
 
+        isInitializing = true;
         reconnectAttempts = 0;
         intentionalDisconnect = false;
 
-        if (!string.IsNullOrEmpty(fixedRegion))
-            PhotonNetwork.PhotonServerSettings.AppSettings.FixedRegion = fixedRegion;
+        try
+        {
+            if (UnityServices.State == ServicesInitializationState.Uninitialized)
+            {
+                await UnityServices.InitializeAsync();
+            }
 
-        PhotonNetwork.ConnectUsingSettings();
+            if (!AuthenticationService.Instance.IsSignedIn)
+            {
+                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            }
+
+            IsConnectedToMaster = true;
+            Debug.Log($"[NetworkManager] Unity Services Başlatıldı. Oyuncu ID: {AuthenticationService.Instance.PlayerId}");
+            OnConnectedToMasterServer?.Invoke();
+
+            if (Unity.Netcode.NetworkManager.Singleton != null)
+            {
+                Unity.Netcode.NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnect;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[NetworkManager] Bağlantı Hatası: {ex.Message}");
+            IsConnectedToMaster = false;
+            OnDisconnectedFromServer?.Invoke(DisconnectCause.Exception);
+            HandleReconnect();
+        }
+        finally
+        {
+            isInitializing = false;
+        }
     }
 
-    /// <summary>Sunucu bağlantısını kapatır (kullanıcı isteğiyle — reconnect denenmez).</summary>
+    /// <summary>Sunucu bağlantısını kapatır.</summary>
     public void DisconnectFromServer()
     {
-        if (PhotonNetwork.IsConnected)
-        {
-            intentionalDisconnect = true;
-            PhotonNetwork.Disconnect();
-        }
-    }
-
-    // ── Photon Bağlantı Callback'leri ───────────────────────────────────
-
-    public override void OnConnectedToMaster()
-    {
-        IsConnectedToMaster = true;
-        reconnectAttempts = 0;
-        Debug.Log($"[NetworkManager] Master server'a bağlanıldı (region: {PhotonNetwork.CloudRegion}).");
-        OnConnectedToMasterServer?.Invoke();
-    }
-
-    public override void OnDisconnected(DisconnectCause cause)
-    {
+        intentionalDisconnect = true;
         IsConnectedToMaster = false;
-        Debug.LogWarning($"[NetworkManager] Sunucu bağlantısı koptu: {cause}");
-        OnDisconnectedFromServer?.Invoke(cause);
 
-        // Kullanıcı bilerek çıktıysa veya otomatik reconnect kapalıysa deneme yapma
-        if (intentionalDisconnect || !autoReconnect)
+        if (Unity.Netcode.NetworkManager.Singleton != null)
         {
-            intentionalDisconnect = false;
-            return;
+            Unity.Netcode.NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnect;
+            if (Unity.Netcode.NetworkManager.Singleton.IsClient || Unity.Netcode.NetworkManager.Singleton.IsServer)
+            {
+                Unity.Netcode.NetworkManager.Singleton.Shutdown();
+            }
         }
+    }
 
+    private void HandleClientDisconnect(ulong clientId)
+    {
+        if (Unity.Netcode.NetworkManager.Singleton != null && clientId == Unity.Netcode.NetworkManager.Singleton.LocalClientId)
+        {
+            IsConnectedToMaster = false;
+            Debug.LogWarning("[NetworkManager] Netcode bağlantısı kapandı.");
+            OnDisconnectedFromServer?.Invoke(DisconnectCause.ClientDisconnect);
+
+            if (!intentionalDisconnect && autoReconnect)
+            {
+                HandleReconnect();
+            }
+        }
+    }
+
+    private void HandleReconnect()
+    {
         if (reconnectAttempts >= maxReconnectAttempts)
         {
             reconnectAttempts = 0;
@@ -137,16 +159,8 @@ public class NetworkManager : MonoBehaviourPunCallbacks
         Invoke(nameof(AttemptReconnect), reconnectDelay);
     }
 
-    // Oda hâlâ duruyorsa odaya geri dön (oyun ortası rejoin), yoksa master'a yeniden bağlan.
-    private void AttemptReconnect()
+    private async void AttemptReconnect()
     {
-        if (!PhotonNetwork.ReconnectAndRejoin())
-            PhotonNetwork.Reconnect();
-    }
-
-    // Odaya (yeniden) katılınca deneme sayacı sıfırlanır.
-    public override void OnJoinedRoom()
-    {
-        reconnectAttempts = 0;
+        await ConnectToServerAsync();
     }
 }

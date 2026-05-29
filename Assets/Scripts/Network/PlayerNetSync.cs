@@ -1,14 +1,12 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
-using Photon.Realtime;
-using ExitGames.Client.Photon;
+using Unity.Netcode;
+using Unity.Collections;
 
 // Oyuncu senkronu — transform, animasyon ve taşıma durumu.
 // Sahip (IsMine): kendi pozisyon/rotasyonunu stream'e yazar, taşıma durumunu player property'sine basar.
 // Diğer client'lar: gelen değere NETWORK_SYNC_RATE aralıklarla lerp eder, animator parametrelerini set eder.
-[RequireComponent(typeof(PhotonView))]
-public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
+public class PlayerNetSync : NetworkBehaviour
 {
     [SerializeField] private Animator animator;
     [SerializeField] private PlayerController playerController;
@@ -20,15 +18,17 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
     private static readonly int SprintingHash = Animator.StringToHash("IsSprinting");
     private static readonly int CarryingHash = Animator.StringToHash("IsCarrying");
 
+    private readonly NetworkVariable<Vector3> netPos = new NetworkVariable<Vector3>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private readonly NetworkVariable<Quaternion> netRot = new NetworkVariable<Quaternion>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private readonly NetworkVariable<bool> netMov = new NetworkVariable<bool>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private readonly NetworkVariable<bool> netSpr = new NetworkVariable<bool>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+    private readonly NetworkVariable<FixedString32Bytes> netCarry = new NetworkVariable<FixedString32Bytes>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     private Vector3 netPosition;
     private Quaternion netRotation;
-    private bool netMoving;
-    private bool netSprinting;
     private Vector3 netVelocity;
     private Vector3 lastReceivedPos;
-    private double lastNetworkTime;
-
-    private float nextSendTime;
+    private float lastReceiveTime;
     private bool lastCarrying;
 
     private void Awake()
@@ -36,19 +36,44 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
         if (playerController == null) playerController = GetComponent<PlayerController>();
         if (carrySystem == null) carrySystem = GetComponent<CarrySystem>();
         if (animator == null) animator = GetComponentInChildren<Animator>();
+    }
 
+    public override void OnNetworkSpawn()
+    {
         netPosition = transform.position;
         netRotation = transform.rotation;
         lastReceivedPos = transform.position;
-        // Serileştirme/gönderim hızı NetworkManager'da merkezi ayarlanır (RPC frequency optimize).
+        lastReceiveTime = Time.time;
+
+        netPos.OnValueChanged += OnPositionChanged;
+        netCarry.OnValueChanged += OnCarryChanged;
+
+        if (!IsOwner)
+        {
+            ApplyCarryState(netCarry.Value.ToString());
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        netPos.OnValueChanged -= OnPositionChanged;
+        netCarry.OnValueChanged -= OnCarryChanged;
     }
 
     private void Update()
     {
-        if (photonView.IsMine)
+        if (IsOwner)
+        {
             PushCarryState();
+            netPos.Value = transform.position;
+            netRot.Value = transform.rotation;
+            netMov.Value = playerController != null && playerController.IsMoving;
+            netSpr.Value = playerController != null && playerController.IsSprinting;
+        }
         else
+        {
             ApplyRemoteTransform();
+        }
     }
 
     // ── Sahip tarafı ────────────────────────────────────────────────────
@@ -60,16 +85,46 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
 
         lastCarrying = carrying;
         string itemName = carrying ? carrySystem.Carried.ItemName : string.Empty;
-        PhotonNetwork.LocalPlayer.SetCustomProperties(new Hashtable { { NetworkKeys.PLAYER_CARRYING, itemName } });
+        netCarry.Value = itemName;
         if (animator != null) animator.SetBool(CarryingHash, carrying);
     }
 
     // ── Diğer client'lar ────────────────────────────────────────────────
 
+    private void OnCarryChanged(FixedString32Bytes oldVal, FixedString32Bytes newVal)
+    {
+        if (IsOwner) return;
+        ApplyCarryState(newVal.ToString());
+    }
+
+    private void ApplyCarryState(string itemName)
+    {
+        if (animator != null) animator.SetBool(CarryingHash, !string.IsNullOrEmpty(itemName));
+    }
+
+    private void OnPositionChanged(Vector3 oldPos, Vector3 newPos)
+    {
+        if (IsOwner) return;
+
+        float interval = Time.time - lastReceiveTime;
+        if (lastReceiveTime > 0f && interval > 0f)
+            netVelocity = (newPos - lastReceivedPos) / interval;
+        lastReceivedPos = newPos;
+        lastReceiveTime = Time.time;
+
+        float lag = 0f;
+        if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.NetworkConfig != null && Unity.Netcode.NetworkManager.Singleton.NetworkConfig.NetworkTransport != null)
+        {
+            lag = (float)Unity.Netcode.NetworkManager.Singleton.NetworkConfig.NetworkTransport.GetCurrentRtt(OwnerClientId) / 2000f;
+        }
+        netPosition = newPos + netVelocity * Mathf.Clamp(lag, 0f, 0.5f);
+        netRotation = netRot.Value;
+    }
+
     private void ApplyRemoteTransform()
     {
         // Paketler arası hareketi tahmini hızla sürdür — hedefe yaklaşırken oluşan deselerasyon stutter'ını önler.
-        if (netMoving)
+        if (netMov.Value)
             netPosition += netVelocity * Time.deltaTime;
 
         if ((transform.position - netPosition).sqrMagnitude > teleportDistance * teleportDistance)
@@ -81,47 +136,8 @@ public class PlayerNetSync : MonoBehaviourPunCallbacks, IPunObservable
 
         if (animator != null)
         {
-            animator.SetBool(MovingHash, netMoving);
-            animator.SetBool(SprintingHash, netSprinting);
-        }
-    }
-
-    public override void OnPlayerPropertiesUpdate(Player targetPlayer, Hashtable changedProps)
-    {
-        if (targetPlayer != photonView.Owner) return;
-        if (!changedProps.TryGetValue(NetworkKeys.PLAYER_CARRYING, out object value)) return;
-        if (animator != null) animator.SetBool(CarryingHash, !string.IsNullOrEmpty(value as string));
-    }
-
-    // ── Stream ──────────────────────────────────────────────────────────
-
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if (stream.IsWriting)
-        {
-            stream.SendNext(transform.position);
-            stream.SendNext(transform.rotation);
-            stream.SendNext(playerController != null && playerController.IsMoving);
-            stream.SendNext(playerController != null && playerController.IsSprinting);
-        }
-        else
-        {
-            Vector3 received = (Vector3)stream.ReceiveNext();
-            netRotation = (Quaternion)stream.ReceiveNext();
-            netMoving = (bool)stream.ReceiveNext();
-            netSprinting = (bool)stream.ReceiveNext();
-
-            // Paketler arası hızı tahmin et (ekstrapolasyon için)
-            double now = PhotonNetwork.Time;
-            float interval = (float)(now - lastNetworkTime);
-            if (lastNetworkTime > 0d && interval > 0f)
-                netVelocity = (received - lastReceivedPos) / interval;
-            lastReceivedPos = received;
-            lastNetworkTime = now;
-
-            // Lag telafisi: paketin yolda geçirdiği süre kadar tahmini ileri taşı
-            float lag = Mathf.Max(0f, (float)(now - info.SentServerTime));
-            netPosition = received + netVelocity * lag;
+            animator.SetBool(MovingHash, netMov.Value);
+            animator.SetBool(SprintingHash, netSpr.Value);
         }
     }
 }

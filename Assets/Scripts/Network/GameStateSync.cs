@@ -1,14 +1,16 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
-using ExitGames.Client.Photon;
+using Unity.Netcode;
 
-// Oyun durumu senkronu — host'taki faz/dalga olaylarını RPC ile tüm client'lara taşır.
-// Oda custom property'lerinde güncel durumu tutar (phase, wave, castleHP) — geç katılım için.
-// Host EventBus event'i fire eder -> burada RPC'ye çevrilir -> client'larda EventBus tekrar fire edilir.
-public class GameStateSync : MonoBehaviourPunCallbacks
+// Oyun durumu senkronu — host'taki faz/dalga olaylarını NetworkVariable ile tüm client'lara taşır.
+// Geç katılan client'lar, NetworkVariable'ın başlangıç değerleriyle güncel durumu kurar.
+public class GameStateSync : NetworkBehaviour
 {
     public static GameStateSync Instance { get; private set; }
+
+    private readonly NetworkVariable<int> roomPhase = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<int> roomWave = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<float> castleHP = new NetworkVariable<float>(GameConstants.CASTLE_MAX_HP, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private void Awake()
     {
@@ -16,102 +18,92 @@ public class GameStateSync : MonoBehaviourPunCallbacks
         Instance = this;
     }
 
-    public override void OnEnable()
+    public override void OnNetworkSpawn()
     {
-        base.OnEnable();        // MonoBehaviourPunCallbacks callback kaydı
+        if (!IsServer)
+        {
+            // Apply initial state for late joiners
+            EventBus.FirePhaseChanged((GamePhase)roomPhase.Value);
+            EventBus.FireWaveStart(roomWave.Value);
+            EventBus.FireCastleDamaged(castleHP.Value, GameConstants.CASTLE_MAX_HP);
+        }
+
+        roomPhase.OnValueChanged += OnPhaseChangedValue;
+        roomWave.OnValueChanged += OnWaveChangedValue;
+        castleHP.OnValueChanged += OnCastleHPChangedValue;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        roomPhase.OnValueChanged -= OnPhaseChangedValue;
+        roomWave.OnValueChanged -= OnWaveChangedValue;
+        castleHP.OnValueChanged -= OnCastleHPChangedValue;
+    }
+
+    public void OnEnable()
+    {
         EventBus.OnPhaseChanged += HandlePhaseChanged;
         EventBus.OnWaveStart += HandleWaveStart;
         EventBus.OnWaveEnd += HandleWaveEnd;
         EventBus.OnCastleDamaged += HandleCastleDamaged;
     }
 
-    public override void OnDisable()
+    public void OnDisable()
     {
-        base.OnDisable();
         EventBus.OnPhaseChanged -= HandlePhaseChanged;
         EventBus.OnWaveStart -= HandleWaveStart;
         EventBus.OnWaveEnd -= HandleWaveEnd;
         EventBus.OnCastleDamaged -= HandleCastleDamaged;
     }
 
-    // ── Host: EventBus -> RPC / room property ───────────────────────────
+    // ── Host: EventBus -> NetworkVariable / RPC ───────────────────────────
 
     private void HandlePhaseChanged(GamePhase phase)
     {
-        if (!CanBroadcast()) return;
-        SetRoomProperty(NetworkKeys.ROOM_PHASE, (int)phase);
-        photonView.RPC(NetworkKeys.RPC_PHASE_CHANGE, RpcTarget.Others, (int)phase);
+        if (IsServer)
+            roomPhase.Value = (int)phase;
     }
 
     private void HandleWaveStart(int waveNumber)
     {
-        if (!CanBroadcast()) return;
-        SetRoomProperty(NetworkKeys.ROOM_WAVE, waveNumber);
-        photonView.RPC(NetworkKeys.RPC_WAVE_START, RpcTarget.Others, waveNumber);
+        if (IsServer)
+            roomWave.Value = waveNumber;
     }
 
     private void HandleWaveEnd(int waveNumber)
     {
-        if (!CanBroadcast()) return;
-        photonView.RPC(NetworkKeys.RPC_WAVE_END, RpcTarget.Others, waveNumber);
+        if (IsServer)
+            RPC_WaveEndRpc(waveNumber);
     }
 
     private void HandleCastleDamaged(float current, float max)
     {
-        if (!CanBroadcast()) return;
-        SetRoomProperty(NetworkKeys.ROOM_CASTLE_HP, current);
+        if (IsServer)
+            castleHP.Value = current;
     }
 
     // ── Client: RPC -> EventBus ─────────────────────────────────────────
 
-    [PunRPC]
-    public void RPC_PhaseChange(int phaseIndex) => EventBus.FirePhaseChanged((GamePhase)phaseIndex);
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_WaveEndRpc(int waveNumber) => EventBus.FireWaveEnd(waveNumber);
 
-    [PunRPC]
-    public void RPC_WaveStart(int waveNumber) => EventBus.FireWaveStart(waveNumber);
+    // ── Client: NetworkVariable OnValueChanged -> EventBus ──────────────
 
-    [PunRPC]
-    public void RPC_WaveEnd(int waveNumber) => EventBus.FireWaveEnd(waveNumber);
-
-    // ── Client: room property -> EventBus ───────────────────────────────
-
-    // Rejoin / geç katılım: live RPC'leri kaçıran client, odadaki mevcut
-    // property'lerden güncel durumu (phase, wave, castleHP) kurar.
-    public override void OnJoinedRoom()
+    private void OnPhaseChangedValue(int oldVal, int newVal)
     {
-        if (AuthorityManager.IsHost) return;
-        ApplyRoomState();
+        if (!IsServer)
+            EventBus.FirePhaseChanged((GamePhase)newVal);
     }
 
-    private void ApplyRoomState()
+    private void OnWaveChangedValue(int oldVal, int newVal)
     {
-        if (PhotonNetwork.CurrentRoom == null) return;
-        Hashtable props = PhotonNetwork.CurrentRoom.CustomProperties;
-
-        if (props.TryGetValue(NetworkKeys.ROOM_PHASE, out object phase))
-            EventBus.FirePhaseChanged((GamePhase)(int)phase);
-
-        if (props.TryGetValue(NetworkKeys.ROOM_WAVE, out object wave))
-            EventBus.FireWaveStart((int)wave);
-
-        if (props.TryGetValue(NetworkKeys.ROOM_CASTLE_HP, out object hp))
-            EventBus.FireCastleDamaged((float)hp, GameConstants.CASTLE_MAX_HP);
+        if (!IsServer)
+            EventBus.FireWaveStart(newVal);
     }
 
-    public override void OnRoomPropertiesUpdate(Hashtable changedProps)
+    private void OnCastleHPChangedValue(float oldVal, float newVal)
     {
-        if (AuthorityManager.IsHost) return;
-        if (changedProps.TryGetValue(NetworkKeys.ROOM_CASTLE_HP, out object hp))
-            EventBus.FireCastleDamaged((float)hp, GameConstants.CASTLE_MAX_HP);
-    }
-
-    // ── Yardımcılar ─────────────────────────────────────────────────────
-
-    private static bool CanBroadcast() => PhotonNetwork.InRoom && AuthorityManager.IsHost;
-
-    private static void SetRoomProperty(string key, object value)
-    {
-        if (PhotonNetwork.CurrentRoom == null) return;
-        PhotonNetwork.CurrentRoom.SetCustomProperties(new Hashtable { { key, value } });
+        if (!IsServer)
+            EventBus.FireCastleDamaged(newVal, GameConstants.CASTLE_MAX_HP);
     }
 }

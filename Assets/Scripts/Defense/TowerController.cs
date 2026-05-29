@@ -1,6 +1,6 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
+using Unity.Netcode;
 
 // Oyuncu kontrollü kule taban sınıfı (IOperable + IInteractable).
 // "[E] Kuleye Gir" ile girilir, kamera kule bakış açısına geçer, oyuncu nişan alır.
@@ -137,8 +137,8 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
 
     private static int ResolvePlayerID(GameObject player)
     {
-        PhotonView view = player.GetComponent<PhotonView>();
-        return view != null ? view.OwnerActorNr : player.GetInstanceID();
+        NetworkObject view = player.GetComponent<NetworkObject>();
+        return view != null ? (int)view.OwnerClientId : player.GetInstanceID();
     }
 
     private static void SetPlayerControlEnabled(GameObject player, bool enabled)
