@@ -1,38 +1,38 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
+using Unity.Netcode;
 
 // Haydut senkronu — pozisyon/rotasyon + AI state stream, spawn/kill RPC.
 // Host (owner): kendi transformunu ve AI state'ini serialize eder; ölümde RPC_BanditKilled broadcast eder.
 // Diğer client'lar: gelen değerlere lerp eder, RPC ile spawn/kill uygular.
 // Ölüm hook'u IDamageable üzerinden alınır (BanditHealth bunu uygular) — somut tipe bağlı değil.
-[RequireComponent(typeof(PhotonView))]
-public class BanditNetSync : MonoBehaviourPun, IPunObservable
+public class BanditNetSync : NetworkBehaviour
 {
     [SerializeField] private float lerpSpeed = 10f;
     [SerializeField] private float teleportDistance = 5f;     // Bu mesafeden uzaksa lerp yerine ışınla
 
     private IDamageable health;
-    private Vector3 netPosition;
-    private Quaternion netRotation;
+    private readonly NetworkVariable<Vector3> netPosition = new NetworkVariable<Vector3>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<Quaternion> netRotation = new NetworkVariable<Quaternion>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<int> netAiState = new NetworkVariable<int>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     private bool deathSubscribed;
     private bool spawnAnnounced;
 
     // Haydut AI durumu (Idle/Chase/Attack) ağ üzerinden taşınır; BanditAI yazar/okur.
-    public int AiState { get; set; }
+    public int AiState
+    {
+        get => netAiState.Value;
+        set { if (IsServer) netAiState.Value = value; }
+    }
 
     private void Awake()
     {
         health = GetComponent<IDamageable>();
-        netPosition = transform.position;
-        netRotation = transform.rotation;
     }
 
     private void OnEnable()
     {
-        // Pool'dan tekrar kullanımda hedef değerleri sıfırla
-        netPosition = transform.position;
-        netRotation = transform.rotation;
         spawnAnnounced = false;
 
         if (health != null && AuthorityManager.IsHost && !deathSubscribed)
@@ -53,18 +53,23 @@ public class BanditNetSync : MonoBehaviourPun, IPunObservable
 
     private void Update()
     {
-        if (photonView.IsMine)
+        if (IsServer)
         {
+            netPosition.Value = transform.position;
+            netRotation.Value = transform.rotation;
             AnnounceSpawnOnce();
             return;
         }
 
-        if ((transform.position - netPosition).sqrMagnitude > teleportDistance * teleportDistance)
-            transform.position = netPosition;
-        else
-            transform.position = Vector3.Lerp(transform.position, netPosition, lerpSpeed * Time.deltaTime);
+        Vector3 currentPos = netPosition.Value;
+        Quaternion currentRot = netRotation.Value;
 
-        transform.rotation = Quaternion.Slerp(transform.rotation, netRotation, lerpSpeed * Time.deltaTime);
+        if ((transform.position - currentPos).sqrMagnitude > teleportDistance * teleportDistance)
+            transform.position = currentPos;
+        else
+            transform.position = Vector3.Lerp(transform.position, currentPos, lerpSpeed * Time.deltaTime);
+
+        transform.rotation = Quaternion.Slerp(transform.rotation, currentRot, lerpSpeed * Time.deltaTime);
     }
 
     // ── Host tarafı ─────────────────────────────────────────────────────
@@ -72,50 +77,30 @@ public class BanditNetSync : MonoBehaviourPun, IPunObservable
     // View hazır olunca spawn'ı bir kez bildir (ShipNetSync ile aynı yaklaşım).
     private void AnnounceSpawnOnce()
     {
-        if (spawnAnnounced || photonView.ViewID == 0) return;
+        if (spawnAnnounced || NetworkObject == null || !NetworkObject.IsSpawned) return;
         spawnAnnounced = true;
-        photonView.RPC(NetworkKeys.RPC_BANDIT_SPAWN, RpcTarget.Others, transform.position, transform.rotation);
+        RPC_BanditSpawnRpc(transform.position, transform.rotation);
     }
 
     private void HandleHostDeath()
     {
         if (!AuthorityManager.RequireHost("Bandit killed")) return;
-        photonView.RPC(NetworkKeys.RPC_BANDIT_KILLED, RpcTarget.All);
+        RPC_BanditKilledRpc();
     }
 
     // ── RPC'ler ─────────────────────────────────────────────────────────
 
-    [PunRPC]
-    private void RPC_BanditSpawn(Vector3 pos, Quaternion rot)
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_BanditSpawnRpc(Vector3 pos, Quaternion rot)
     {
         transform.SetPositionAndRotation(pos, rot);
-        netPosition = pos;
-        netRotation = rot;
         if (!gameObject.activeSelf) gameObject.SetActive(true);
     }
 
-    [PunRPC]
-    private void RPC_BanditKilled()
+    [Rpc(SendTo.Everyone)]
+    private void RPC_BanditKilledRpc()
     {
         // Pool kullanımıyla uyumlu — gerçek destroy yok, deaktif et.
         gameObject.SetActive(false);
-    }
-
-    // ── Stream ──────────────────────────────────────────────────────────
-
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if (stream.IsWriting)
-        {
-            stream.SendNext(transform.position);
-            stream.SendNext(transform.rotation);
-            stream.SendNext(AiState);
-        }
-        else
-        {
-            netPosition = (Vector3)stream.ReceiveNext();
-            netRotation = (Quaternion)stream.ReceiveNext();
-            AiState = (int)stream.ReceiveNext();
-        }
     }
 }

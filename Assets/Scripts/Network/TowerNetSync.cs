@@ -1,13 +1,12 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
+using Unity.Netcode;
 
 // Kule senkronu — giriş/çıkış, ateş ve yükseltme RPC'leri. Kule sabit olduğu için pozisyon stream'i yok.
 // Kuleyi yerel kullanan client EventBus olaylarını RpcTarget.Others'a taşır; diğer client'lar gelen
 // RPC'de aynı EventBus olayını tekrar fire eder (UI/efekt/mermi görseli OnTowerFired dinleyicilerinde olur).
 // Yükseltme TowerUpgrade'in instance event'inden alınır; alıcıda guard ile tekrar yayınlanmaz.
-[RequireComponent(typeof(PhotonView))]
-public class TowerNetSync : MonoBehaviourPun
+public class TowerNetSync : NetworkBehaviour
 {
     [SerializeField] private TowerController controller;
     [SerializeField] private TowerUpgrade upgrade;
@@ -46,7 +45,7 @@ public class TowerNetSync : MonoBehaviourPun
         if (controller.OperatorPlayerID != pid || !IsLocalActor(pid)) return;
 
         localOperatorPid = pid;
-        photonView.RPC(NetworkKeys.RPC_ENTER_TOWER, RpcTarget.Others, pid, (int)type);
+        RPC_EnterTowerRpc(pid, (int)type);
     }
 
     private void HandleTowerExited(int pid, DefenseType type)
@@ -54,7 +53,7 @@ public class TowerNetSync : MonoBehaviourPun
         if (pid != localOperatorPid) return;    // bizim girişimizin çıkışı değil
 
         localOperatorPid = -1;
-        photonView.RPC(NetworkKeys.RPC_EXIT_TOWER, RpcTarget.Others, pid, (int)type);
+        RPC_ExitTowerRpc(pid, (int)type);
     }
 
     private void HandleTowerFired(DefenseType type, Vector3 target)
@@ -62,39 +61,39 @@ public class TowerNetSync : MonoBehaviourPun
         if (controller == null || !controller.IsOccupied) return;
         if (!IsLocalActor(controller.OperatorPlayerID)) return;
 
-        photonView.RPC(NetworkKeys.RPC_TOWER_FIRE, RpcTarget.Others, (int)type, target);
+        RPC_TowerFireRpc((int)type, target);
     }
 
     private void HandleUpgraded(UpgradeLevel level)
     {
-        if (applyingRemoteUpgrade || !PhotonNetwork.InRoom) return;
-        photonView.RPC(NetworkKeys.RPC_UPGRADE, RpcTarget.Others, (int)level);
+        if (applyingRemoteUpgrade || Unity.Netcode.NetworkManager.Singleton == null || !Unity.Netcode.NetworkManager.Singleton.IsClient) return;
+        RPC_UpgradeRpc((int)level);
     }
 
     // ── RPC'ler (alıcı tarafı — yerel EventBus'a yeniden yayınla) ────────
 
-    [PunRPC]
-    private void RPC_EnterTower(int pid, int typeInt)
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_EnterTowerRpc(int pid, int typeInt)
     {
         EventBus.FireTowerEntered(pid, (DefenseType)typeInt);
     }
 
-    [PunRPC]
-    private void RPC_ExitTower(int pid, int typeInt)
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_ExitTowerRpc(int pid, int typeInt)
     {
         EventBus.FireTowerExited(pid, (DefenseType)typeInt);
     }
 
     // Ateş herkeste görünsün — mermi/namlu görseli OnTowerFired dinleyicilerinde spawn olur.
-    [PunRPC]
-    private void RPC_TowerFire(int typeInt, Vector3 target)
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_TowerFireRpc(int typeInt, Vector3 target)
     {
         EventBus.FireTowerFired((DefenseType)typeInt, target);
     }
 
     // Yükseltmeyi alıcıda da uygula → tier/stat senkron kalır, yerel EventBus.FireUpgradeCompleted tetiklenir.
-    [PunRPC]
-    private void RPC_Upgrade(int levelInt)
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_UpgradeRpc(int levelInt)
     {
         if (upgrade == null) return;
 
@@ -108,8 +107,8 @@ public class TowerNetSync : MonoBehaviourPun
 
     private static bool IsLocalActor(int pid)
     {
-        return PhotonNetwork.InRoom
-            && PhotonNetwork.LocalPlayer != null
-            && pid == PhotonNetwork.LocalPlayer.ActorNumber;
+        return Unity.Netcode.NetworkManager.Singleton != null
+            && Unity.Netcode.NetworkManager.Singleton.IsClient
+            && (ulong)pid == Unity.Netcode.NetworkManager.Singleton.LocalClientId;
     }
 }
