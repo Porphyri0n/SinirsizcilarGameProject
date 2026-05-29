@@ -1,12 +1,11 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
+using Unity.Netcode;
 
 // Craft senkronu — host'taki craft start/complete olaylarını RPC ile diğer client'lara taşır.
 // RecipeData SO ağda gönderilemez; recipeName ile RecipeCatalog'dan lookup yapılır.
 // Host EventBus event'i fire eder -> burada RPC'ye çevrilir -> client'larda EventBus tekrar fire edilir.
-[RequireComponent(typeof(PhotonView))]
-public class CraftNetSync : MonoBehaviourPun
+public class CraftNetSync : NetworkBehaviour
 {
     [SerializeField] private RecipeCatalog catalog;
 
@@ -27,27 +26,27 @@ public class CraftNetSync : MonoBehaviourPun
     private void HandleCraftStarted(RecipeData recipe, float duration)
     {
         if (!CanBroadcast() || recipe == null) return;
-        photonView.RPC(NetworkKeys.RPC_START_CRAFT, RpcTarget.Others, recipe.recipeName, duration);
+        RPC_StartCraftRpc(recipe.recipeName, duration);
     }
 
     private void HandleCraftCompleted(RecipeData recipe)
     {
         if (!CanBroadcast() || recipe == null) return;
-        photonView.RPC(NetworkKeys.RPC_COMPLETE_CRAFT, RpcTarget.Others, recipe.recipeName);
+        RPC_CompleteCraftRpc(recipe.recipeName);
     }
 
     // ── Client: RPC -> EventBus ─────────────────────────────────────────
 
-    [PunRPC]
-    public void RPC_StartCraft(string recipeName, float duration)
+    [Rpc(SendTo.NotOwner)]
+    public void RPC_StartCraftRpc(string recipeName, float duration)
     {
         RecipeData recipe = FindRecipe(recipeName);
         if (recipe == null) return;
         EventBus.FireCraftStarted(recipe, duration);
     }
 
-    [PunRPC]
-    public void RPC_CompleteCraft(string recipeName)
+    [Rpc(SendTo.NotOwner)]
+    public void RPC_CompleteCraftRpc(string recipeName)
     {
         RecipeData recipe = FindRecipe(recipeName);
         if (recipe == null) return;
@@ -64,5 +63,5 @@ public class CraftNetSync : MonoBehaviourPun
         return null;
     }
 
-    private static bool CanBroadcast() => PhotonNetwork.InRoom && AuthorityManager.IsHost;
+    private bool CanBroadcast() => Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsClient && AuthorityManager.IsHost;
 }

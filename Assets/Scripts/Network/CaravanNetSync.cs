@@ -1,21 +1,21 @@
 using System;
 using UnityEngine;
-using Photon.Pun;
+using Unity.Netcode;
 
 // Ticari kervan senkronu — pozisyon/rotasyon stream + yaşam döngüsü RPC'leri.
 // Host (owner): yaklaşma/varış/saldırı/yok olma anlarını RpcTarget.Others'a broadcast eder.
 // Client'lar: gelen RPC'de ilgili EventBus event'ini yeniden fire eder (CaravanData prefab'dan
 // geldiği için her client'ta yereldir — SO serialize edilmez, sadece tetik gönderilir).
-[RequireComponent(typeof(PhotonView))]
-public class CaravanNetSync : MonoBehaviourPun, IPunObservable
+public class CaravanNetSync : NetworkBehaviour
 {
     [SerializeField] private CaravanController controller;
     [SerializeField] private CaravanMovement movement;
     [SerializeField] private float lerpSpeed = 6f;
     [SerializeField] private float teleportDistance = 5f;     // Bu mesafeden uzaksa lerp yerine ışınla
 
-    private Vector3 netPosition;
-    private Quaternion netRotation;
+    private readonly NetworkVariable<Vector3> netPosition = new NetworkVariable<Vector3>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<Quaternion> netRotation = new NetworkVariable<Quaternion>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     private bool hostHooked;
     private bool approachAnnounced;
     private bool attackAnnounced;
@@ -24,21 +24,22 @@ public class CaravanNetSync : MonoBehaviourPun, IPunObservable
     {
         if (controller == null) controller = GetComponent<CaravanController>();
         if (movement == null) movement = GetComponent<CaravanMovement>();
-        netPosition = transform.position;
-        netRotation = transform.rotation;
     }
 
-    private void OnEnable()
+    public override void OnNetworkSpawn()
     {
-        netPosition = transform.position;
-        netRotation = transform.rotation;
+        if (IsServer)
+        {
+            netPosition.Value = transform.position;
+            netRotation.Value = transform.rotation;
+        }
 
         // Owner değilsek yerel hareket host'un transformuyla çakışmasın diye kapat.
-        if (!photonView.IsMine && movement != null)
+        if (!IsOwner && movement != null)
             movement.enabled = false;
 
         // Host: varış ve yok olma yerel event'lerini RPC'ye çevir.
-        if (AuthorityManager.IsHost && !hostHooked)
+        if (IsServer && !hostHooked)
         {
             if (movement != null) movement.OnReachedCastle += HandleHostArrived;
             if (controller != null) controller.OnDeath += HandleHostDestroyed;
@@ -46,7 +47,7 @@ public class CaravanNetSync : MonoBehaviourPun, IPunObservable
         }
     }
 
-    private void OnDisable()
+    public override void OnNetworkDespawn()
     {
         if (hostHooked)
         {
@@ -58,19 +59,27 @@ public class CaravanNetSync : MonoBehaviourPun, IPunObservable
 
     private void Update()
     {
-        if (photonView.IsMine)
+        if (IsOwner)
         {
+            if (IsServer)
+            {
+                netPosition.Value = transform.position;
+                netRotation.Value = transform.rotation;
+            }
             AnnounceApproachOnce();
             AnnounceAttackOnce();
             return;
         }
 
-        if ((transform.position - netPosition).sqrMagnitude > teleportDistance * teleportDistance)
-            transform.position = netPosition;
-        else
-            transform.position = Vector3.Lerp(transform.position, netPosition, lerpSpeed * Time.deltaTime);
+        Vector3 currentPos = netPosition.Value;
+        Quaternion currentRot = netRotation.Value;
 
-        transform.rotation = Quaternion.Slerp(transform.rotation, netRotation, lerpSpeed * Time.deltaTime);
+        if ((transform.position - currentPos).sqrMagnitude > teleportDistance * teleportDistance)
+            transform.position = currentPos;
+        else
+            transform.position = Vector3.Lerp(transform.position, currentPos, lerpSpeed * Time.deltaTime);
+
+        transform.rotation = Quaternion.Slerp(transform.rotation, currentRot, lerpSpeed * Time.deltaTime);
     }
 
     // ── Host tarafı ─────────────────────────────────────────────────────
@@ -78,9 +87,9 @@ public class CaravanNetSync : MonoBehaviourPun, IPunObservable
     // View hazır olunca kervanın yaklaştığını bir kez bildir (ShipNetSync'teki spawn bildirimi gibi).
     private void AnnounceApproachOnce()
     {
-        if (approachAnnounced || photonView.ViewID == 0) return;
+        if (approachAnnounced || NetworkObject == null || !NetworkObject.IsSpawned) return;
         approachAnnounced = true;
-        photonView.RPC(NetworkKeys.RPC_CARAVAN_APPROACH, RpcTarget.Others);
+        RPC_CaravanApproachRpc();
     }
 
     private void AnnounceAttackOnce()
@@ -88,60 +97,44 @@ public class CaravanNetSync : MonoBehaviourPun, IPunObservable
         if (attackAnnounced || controller == null) return;
         if (controller.State != CaravanState.UnderAttack) return;
         attackAnnounced = true;
-        photonView.RPC(NetworkKeys.RPC_CARAVAN_ATTACKED, RpcTarget.Others, transform.position);
+        RPC_CaravanAttackedRpc(transform.position);
     }
 
     private void HandleHostArrived()
     {
         if (!AuthorityManager.RequireHost("Caravan arrived")) return;
-        photonView.RPC(NetworkKeys.RPC_CARAVAN_ARRIVED, RpcTarget.Others);
+        RPC_CaravanArrivedRpc();
     }
 
     private void HandleHostDestroyed()
     {
         if (!AuthorityManager.RequireHost("Caravan destroyed")) return;
-        photonView.RPC(NetworkKeys.RPC_CARAVAN_DESTROYED, RpcTarget.Others);
+        RPC_CaravanDestroyedRpc();
     }
 
     // ── RPC'ler (client tarafı — yerel EventBus'a yeniden yayınla) ────────
 
-    [PunRPC]
-    private void RPC_CaravanApproach()
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_CaravanApproachRpc()
     {
         if (controller != null) EventBus.FireCaravanApproaching(controller.Data);
     }
 
-    [PunRPC]
-    private void RPC_CaravanArrived()
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_CaravanArrivedRpc()
     {
         if (controller != null) EventBus.FireCaravanArrived(controller.Data);
     }
 
-    [PunRPC]
-    private void RPC_CaravanAttacked(Vector3 pos)
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_CaravanAttackedRpc(Vector3 pos)
     {
         EventBus.FireCaravanUnderAttack(pos);
     }
 
-    [PunRPC]
-    private void RPC_CaravanDestroyed()
+    [Rpc(SendTo.NotOwner)]
+    private void RPC_CaravanDestroyedRpc()
     {
         EventBus.FireCaravanDestroyed();
-    }
-
-    // ── Stream ──────────────────────────────────────────────────────────
-
-    public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
-    {
-        if (stream.IsWriting)
-        {
-            stream.SendNext(transform.position);
-            stream.SendNext(transform.rotation);
-        }
-        else
-        {
-            netPosition = (Vector3)stream.ReceiveNext();
-            netRotation = (Quaternion)stream.ReceiveNext();
-        }
     }
 }

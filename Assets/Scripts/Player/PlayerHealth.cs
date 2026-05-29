@@ -6,7 +6,7 @@ using UnityEngine;
 public class PlayerHealth : MonoBehaviour, IDamageable
 {
     [SerializeField] private float maxHealth = 100f;
-    [SerializeField] private int playerID = -1;     // Photon ActorNumber — network katmanı atar
+    [SerializeField] private int playerID = -1;     // Client ID — network katmanı atar
 
     private float currentHealth;
     private bool isDead;

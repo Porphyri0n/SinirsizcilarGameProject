@@ -2,7 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Photon.Pun;
+using Unity.Netcode;
 
 // Sela mekaniği: ölen oyuncuyu diriltme.
 // OnPlayerDied -> ceset kaydı. Cesede yaklasan oyuncu "[E] Sela Oku" gorur.
@@ -150,8 +150,8 @@ public class SelaCorpseInteractable : MonoBehaviour, IInteractable
 
     private static int ResolvePlayerID(GameObject player)
     {
-        PhotonView view = player.GetComponent<PhotonView>();
-        return view != null ? view.OwnerActorNr : player.GetInstanceID();
+        NetworkObject view = player.GetComponent<NetworkObject>();
+        return view != null ? (int)view.OwnerClientId : player.GetInstanceID();
     }
 }
 
