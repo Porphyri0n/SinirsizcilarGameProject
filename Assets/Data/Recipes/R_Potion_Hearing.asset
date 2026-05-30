@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d075c9defd05594ba20940f42c0a2eb, type: 3}
+  m_Name: R_Potion_Hearing
+  m_EditorClassIdentifier: 
+  recipeName: "\u0130\u015Fitme \u0130ksiri"
+  ingredients:
+  - resourceType: 2
+    amount: 1
+  - resourceType: 0
+    amount: 1
+  requiredStationLevel: 0
+  craftDuration: 10
+  recipeIcon: {fileID: 0}
