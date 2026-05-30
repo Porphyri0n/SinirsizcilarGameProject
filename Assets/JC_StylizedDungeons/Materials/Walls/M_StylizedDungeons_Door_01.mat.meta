@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8eafd579ecf22a8429420198627fe104
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Materials/Walls/M_StylizedDungeons_Door_01.mat
+  uploadId: 723321

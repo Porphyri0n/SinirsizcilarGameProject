@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: bea046377a3fca947992a7c6e691dc3a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Materials/Props/M_StylizedDungeons_Light_01.mat
+  uploadId: 723321

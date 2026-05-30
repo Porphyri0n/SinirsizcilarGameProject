@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 85cc5b9a0b8f7f344bd811e4c1914dc4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Prefabs/Walls/SM_Walls_Column_01.prefab
+  uploadId: 723321

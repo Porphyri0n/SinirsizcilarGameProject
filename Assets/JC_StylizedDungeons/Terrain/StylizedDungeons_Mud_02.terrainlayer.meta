@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 16f3742e20bb4b1498899b58a551ac66
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 8574412962073106934
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Terrain/StylizedDungeons_Mud_02.terrainlayer
+  uploadId: 723321
