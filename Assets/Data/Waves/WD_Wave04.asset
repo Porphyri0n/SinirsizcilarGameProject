@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 928c47cc75893644d88b2c93f6fd6a65, type: 3}
+  m_Name: WD_Wave04
+  m_EditorClassIdentifier: 
+  waveNumber: 4
+  prepPhaseDuration: 75
+  ships:
+  - shipData: {fileID: 11400000, guid: fd00a63e263a8f64ebf6cf025559eb4a, type: 2}
+    count: 6
+  - shipData: {fileID: 11400000, guid: 45c034fea7ed35e419715cb9cb372e09, type: 2}
+    count: 3
+  spawnInterval: 1.4
+  isBossWave: 0

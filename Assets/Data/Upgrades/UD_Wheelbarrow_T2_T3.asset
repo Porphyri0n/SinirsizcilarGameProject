@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ea10995ea28f3c4580b8cc2f8728ae2, type: 3}
+  m_Name: UD_Wheelbarrow_T2_T3
+  m_EditorClassIdentifier: 
+  upgradeName: "El Arabas\u0131 T3"
+  fromLevel: 1
+  toLevel: 2
+  cost:
+  - resourceType: 3
+    amount: 3
+  - resourceType: 2
+    amount: 4
+  upgradeTime: 30
+  description: "Kapasite 8'e, h\u0131z \xE7arpan\u0131 1.0'a y\xFCkselir."

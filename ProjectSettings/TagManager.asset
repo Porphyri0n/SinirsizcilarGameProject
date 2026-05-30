@@ -3,7 +3,15 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 3
-  tags: []
+  tags:
+  - Enemy
+  - Defense
+  - Castle
+  - Interactable
+  - Loot
+  - Caravan
+  - Bandit
+  - TradeRoad
   layers:
   - Default
   - TransparentFX
@@ -11,9 +19,9 @@ TagManager:
   - 
   - Water
   - UI
-  - 
-  - 
-  - 
+  - Ground
+  - Water
+  - WallTop
   - 
   - 
   - 
