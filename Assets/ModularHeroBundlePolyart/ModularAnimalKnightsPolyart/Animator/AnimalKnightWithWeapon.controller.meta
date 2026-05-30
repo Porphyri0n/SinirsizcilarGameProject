@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 183df93d6a900a34d937e691fe72da71
+timeCreated: 1543209043
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 321290
+  packageName: RPG Modular Hero Bundle Polyart
+  packageVersion: 1.0
+  assetPath: Assets/ModularHeroBundlePolyart/ModularAnimalKnightsPolyart/Animator/AnimalKnightWithWeapon.controller
+  uploadId: 759027
