@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 6d95e733280d08042b19133a159cc7ac
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {fileID: 11500000, guid: 625f186215c104763be7675aa2d941aa, type: 3}
+AssetOrigin:
+  serializedVersion: 1
+  productId: 321290
+  packageName: RPG Modular Hero Bundle Polyart
+  packageVersion: 1.0
+  assetPath: Assets/ModularHeroBundlePolyart/ModularAnimalKnightsPolyart/Shader/URPMasktTintPA.ShaderGraph
+  uploadId: 759027

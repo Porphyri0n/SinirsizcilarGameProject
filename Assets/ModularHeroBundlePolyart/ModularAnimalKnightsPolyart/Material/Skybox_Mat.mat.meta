@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 066b4e121958b224ca979e9b2c0f617f
+timeCreated: 1579170749
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: -1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 321290
+  packageName: RPG Modular Hero Bundle Polyart
+  packageVersion: 1.0
+  assetPath: Assets/ModularHeroBundlePolyart/ModularAnimalKnightsPolyart/Material/Skybox_Mat.mat
+  uploadId: 759027
