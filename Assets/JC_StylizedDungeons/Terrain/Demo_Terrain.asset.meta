@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 0feec2f98fae8d04a86e06d01ee54464
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 15600000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Terrain/Demo_Terrain.asset
+  uploadId: 723321

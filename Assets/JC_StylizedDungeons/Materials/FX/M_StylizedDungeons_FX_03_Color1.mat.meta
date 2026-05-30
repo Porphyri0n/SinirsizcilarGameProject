@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c56d1125ab5340146bfec4b9f92e508a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Materials/FX/M_StylizedDungeons_FX_03_Color1.mat
+  uploadId: 723321

@@ -18,9 +18,9 @@ public enum DisconnectCause
 /// Unity Netcode & Services bağlantı yönetimi — Singleton.
 /// Unity Services ve Authentication'ı başlatır, bağlantı durumlarını yönetir.
 /// </summary>
-public class NetworkManager : MonoBehaviour
+public class GameNetworkManager : MonoBehaviour
 {
-    public static NetworkManager Instance { get; private set; }
+    public static GameNetworkManager Instance { get; private set; }
 
     [Header("Ayarlar")]
     [SerializeField] private bool connectOnStart = true;
@@ -92,7 +92,7 @@ public class NetworkManager : MonoBehaviour
             }
 
             IsConnectedToMaster = true;
-            Debug.Log($"[NetworkManager] Unity Services Başlatıldı. Oyuncu ID: {AuthenticationService.Instance.PlayerId}");
+            Debug.Log($"[GameNetworkManager] Unity Services Başlatıldı. Oyuncu ID: {AuthenticationService.Instance.PlayerId}");
             OnConnectedToMasterServer?.Invoke();
 
             if (Unity.Netcode.NetworkManager.Singleton != null)
@@ -102,7 +102,7 @@ public class NetworkManager : MonoBehaviour
         }
         catch (Exception ex)
         {
-            Debug.LogError($"[NetworkManager] Bağlantı Hatası: {ex.Message}");
+            Debug.LogError($"[GameNetworkManager] Bağlantı Hatası: {ex.Message}");
             IsConnectedToMaster = false;
             OnDisconnectedFromServer?.Invoke(DisconnectCause.Exception);
             HandleReconnect();
@@ -134,7 +134,7 @@ public class NetworkManager : MonoBehaviour
         if (Unity.Netcode.NetworkManager.Singleton != null && clientId == Unity.Netcode.NetworkManager.Singleton.LocalClientId)
         {
             IsConnectedToMaster = false;
-            Debug.LogWarning("[NetworkManager] Netcode bağlantısı kapandı.");
+            Debug.LogWarning("[GameNetworkManager] Netcode bağlantısı kapandı.");
             OnDisconnectedFromServer?.Invoke(DisconnectCause.ClientDisconnect);
 
             if (!intentionalDisconnect && autoReconnect)
@@ -149,7 +149,7 @@ public class NetworkManager : MonoBehaviour
         if (reconnectAttempts >= maxReconnectAttempts)
         {
             reconnectAttempts = 0;
-            Debug.LogWarning("[NetworkManager] Yeniden bağlanma başarısız — denemeler tükendi.");
+            Debug.LogWarning("[GameNetworkManager] Yeniden bağlanma başarısız — denemeler tükendi.");
             OnReconnectFailed?.Invoke();
             return;
         }

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b6ce2f91b4f6d1041a11b0859a1b4011
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Materials/Floor/M_StylizedDungeons_Floor_05.mat
+  uploadId: 723321

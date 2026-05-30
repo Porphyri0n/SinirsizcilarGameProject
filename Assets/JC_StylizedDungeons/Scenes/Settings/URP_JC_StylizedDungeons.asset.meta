@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 29ce79c757f5940e4a097a8145776043
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Scenes/Settings/URP_JC_StylizedDungeons.asset
+  uploadId: 723321

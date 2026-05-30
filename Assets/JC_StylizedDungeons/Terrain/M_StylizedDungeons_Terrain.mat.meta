@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fc9551ecde7a547dfa54359180efcf6c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 307763
+  packageName: Stylized Dungeons
+  packageVersion: 1.0
+  assetPath: Assets/JC_StylizedDungeons/Terrain/M_StylizedDungeons_Terrain.mat
+  uploadId: 723321
