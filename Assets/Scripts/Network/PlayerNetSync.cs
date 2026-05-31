@@ -51,6 +51,25 @@ public class PlayerNetSync : NetworkBehaviour
         if (!IsOwner)
         {
             ApplyCarryState(netCarry.Value.ToString());
+
+            // Diğer oyuncuların (remote) yerel girdi ve kontrol bileşenlerini kapat
+            if (playerController != null) playerController.enabled = false;
+
+            PlayerCombat combat = GetComponent<PlayerCombat>();
+            if (combat != null) combat.enabled = false;
+
+            PlayerInteraction interaction = GetComponent<PlayerInteraction>();
+            if (interaction != null) interaction.enabled = false;
+
+            PlayerSpawnController spawnController = GetComponent<PlayerSpawnController>();
+            if (spawnController != null) spawnController.enabled = false;
+
+            // Kamera ve AudioListener'ı kapat (birden fazla kameranın çakışmaması için)
+            Camera cam = GetComponentInChildren<Camera>();
+            if (cam != null) cam.enabled = false;
+
+            AudioListener listener = GetComponentInChildren<AudioListener>();
+            if (listener != null) listener.enabled = false;
         }
     }
 

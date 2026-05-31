@@ -19,4 +19,4 @@ MonoBehaviour:
   blockAmount: 0
   attackSpeed: 1.2
   icon: {fileID: 0}
-  prefab: {fileID: 0}
+  prefab: {fileID: 1101081764293358151, guid: b209a20202046fe46a81cb0a3c9d7cb3, type: 3}
