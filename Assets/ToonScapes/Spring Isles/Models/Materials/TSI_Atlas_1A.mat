@@ -183,7 +183,7 @@ Material:
     - _NormalMapInfluence: 0.5
     - _NormalScale: 1
     - _OFFSET: 0.5
-    - _Occlusion: 1
+    - _Occlusion: 0.006
     - _OcclusionIntensity: 0.15
     - _OcclusionStrength: 1
     - _Offset: 0

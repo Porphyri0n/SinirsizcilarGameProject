@@ -186,7 +186,7 @@ Material:
     - _Mode: 0
     - _NormalMapInfluence: 0
     - _Occlusion: 1
-    - _Occlusion1: 1
+    - _Occlusion1: 0
     - _OcclusionIntensity: 0.15
     - _OcclusionIntensity1: 1
     - _OcclusionStrength: 1
