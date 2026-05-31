@@ -25,6 +25,11 @@ public class PlayerController : MonoBehaviour
     [Header("Referanslar")]
     [SerializeField] private Transform cameraTransform;
 
+    [Header("Kamera Kontrolü")]
+    [SerializeField] private float mouseSensitivity = 2f;
+    [SerializeField] private float minPitch = -30f;
+    [SerializeField] private float maxPitch = 60f;
+
     private CharacterController controller;
     private Vector3 verticalVelocity;            // Sadece dikey hız (yerçekimi + zıplama)
     private float speedMultiplier = 1f;          // CarrySystem vb. için hız ölçekleyici (1 = normal)
@@ -35,6 +40,10 @@ public class PlayerController : MonoBehaviour
     private float coyoteCounter;
     private float jumpBufferCounter;
     private bool wasGrounded;
+
+    private float cameraYaw = 0f;
+    private float cameraPitch = 0f;
+    private Vector3 cameraOffset;
 
     public bool IsGrounded => controller.isGrounded;
     public bool IsSprinting { get; private set; }
@@ -48,11 +57,78 @@ public class PlayerController : MonoBehaviour
             cameraTransform = Camera.main.transform;
     }
 
+    private void OnEnable()
+    {
+        // Script aktif olduğunda cursor'ı kilitle
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    private void OnDisable()
+    {
+        // Script kapandığında (örn. ölüm, menü) cursor'ı serbest bırak
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+    }
+
+    private void Start()
+    {
+        if (cameraTransform != null)
+        {
+            // Kameranın başlangıç rotasyonunu al
+            Vector3 rot = cameraTransform.eulerAngles;
+            cameraYaw = rot.y;
+            cameraPitch = rot.x;
+            if (cameraPitch > 180f) cameraPitch -= 360f;
+
+            // Kameranın oyuncuya göre başlangıç local offsetini hesapla
+            cameraOffset = transform.InverseTransformPoint(cameraTransform.position);
+        }
+    }
+
     private void Update()
     {
+        // İmleci oyuna almak için tıklama kontrolü
+        if (Input.GetMouseButtonDown(0))
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+        // İmleci serbest bırakmak için Escape kontrolü
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+
         HandleMovement();
         HandleGravityAndJump();
     }
+
+    private void LateUpdate()
+    {
+        if (cameraTransform == null) return;
+
+        // İmleç kilitliyken mouse hareketleriyle kamerayı döndür
+        if (Cursor.lockState == CursorLockMode.Locked)
+        {
+            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+
+            cameraYaw += mouseX;
+            cameraPitch -= mouseY;
+            cameraPitch = Mathf.Clamp(cameraPitch, minPitch, maxPitch);
+        }
+
+        // Kameranın dünya rotasyonunu ve pozisyonunu güncelle
+        Quaternion rotation = Quaternion.Euler(cameraPitch, cameraYaw, 0f);
+        Vector3 targetPosition = transform.position + rotation * cameraOffset;
+
+        cameraTransform.rotation = rotation;
+        cameraTransform.position = targetPosition;
+    }
+
 
     private void HandleMovement()
     {
