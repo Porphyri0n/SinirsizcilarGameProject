@@ -1,0 +1,34 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi:schemaLocation="UnityEngine.UIElements ../../UIElementsSchema/UnityEngine.UIElements.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ui:Style src="Lobby.uss" />
+    <ui:VisualElement name="root" class="root">
+        <ui:VisualElement name="background" class="background" />
+        
+        <ui:VisualElement name="setupPanel" class="panel">
+            <ui:Label text="GAME LOBBY" class="header-text" />
+            <ui:Label text="Create or join a room to play" class="subtitle-text" />
+            
+            <ui:TextField name="roomNameInput" label="Room Name" class="input-field" />
+            
+            <ui:VisualElement class="spacer" />
+            
+            <ui:Button name="createRoomButton" text="CREATE ROOM" class="button" />
+            <ui:Button name="joinRoomButton" text="JOIN ROOM" class="button button-secondary" />
+            <ui:Button name="quickJoinButton" text="QUICK JOIN" class="button button-secondary" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="lobbyPanel" class="panel hidden">
+            <ui:Label text="LOBBY" class="header-text" />
+            <ui:Label name="roomInfoText" text="LOBBY: ROOM_NAME\nPLAYERS: 1/4" class="info-text" />
+            
+            <ui:ScrollView name="playerList" class="player-list" />
+            
+            <ui:VisualElement class="spacer" />
+            
+            <ui:VisualElement name="actions">
+                <ui:Button name="readyButton" text="READY" class="button button-success" />
+                <ui:Button name="startGameButton" text="START GAME" class="button" />
+                <ui:Button name="leaveButton" text="LEAVE LOBBY" class="button button-danger" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

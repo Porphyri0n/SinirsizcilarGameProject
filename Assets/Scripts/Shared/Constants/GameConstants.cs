@@ -20,6 +20,9 @@ public static class GameConstants
     public const float PLAYER_SPRINT_SPEED = 12f;
     public const float PLAYER_JUMP_FORCE = 8f;
     public const float CARRY_SPEED_MULTIPLIER = 0.6f;
+    public const float PLAYER_MAX_STAMINA = 100f;
+    public const float PLAYER_STAMINA_CONSUMPTION = 20f; // per second
+    public const float PLAYER_STAMINA_REGEN = 15f;        // per second
 
     // ── COMBAT ───────────────────────────────────────────────────────────
     public const float SWORD_BASE_DAMAGE = 10f;

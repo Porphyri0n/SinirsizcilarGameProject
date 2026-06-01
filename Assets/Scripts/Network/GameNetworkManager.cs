@@ -32,6 +32,15 @@ public class GameNetworkManager : MonoBehaviour
     public byte MaxPlayersPerRoom => GameConstants.MAX_PLAYERS_PER_ROOM;
 
     public bool IsConnectedToMaster { get; private set; }
+    public bool GameStarted { get; set; } = false;
+
+    /// <summary>Oyun yeniden başlatıldığında state'i sıfırlar.</summary>
+    public void ResetGameState()
+    {
+        GameStarted = false;
+        intentionalDisconnect = false;
+        reconnectAttempts = 0;
+    }
 
     /// <summary>Master server'a bağlanıldığında tetiklenir.</summary>
     public event Action OnConnectedToMasterServer;
@@ -134,8 +143,15 @@ public class GameNetworkManager : MonoBehaviour
         if (Unity.Netcode.NetworkManager.Singleton != null && clientId == Unity.Netcode.NetworkManager.Singleton.LocalClientId)
         {
             IsConnectedToMaster = false;
-            Debug.LogWarning("[GameNetworkManager] Netcode bağlantısı kapandı.");
+            Debug.LogWarning("[GameNetworkManager] Netcode bağlantısı kapandı. Lobiye dönülüyor...");
             OnDisconnectedFromServer?.Invoke(DisconnectCause.ClientDisconnect);
+
+            ResetGameState();
+            EventBus.ClearAll();
+
+            // Eğer oyun içindeysek veya bağlantı koptuysa sahneyi yeniden yükle (Lobiye dön)
+            // LobbyManager ve NetworkManager'ın temiz bir state ile başlamasını sağlar.
+            UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name);
 
             if (!intentionalDisconnect && autoReconnect)
             {

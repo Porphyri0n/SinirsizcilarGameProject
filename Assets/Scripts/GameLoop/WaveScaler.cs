@@ -61,7 +61,7 @@ public static class WaveScaler
             lightShips = Mathf.Max(1, Mathf.RoundToInt(3f * scale)),
             mediumShips = Mathf.RoundToInt(1.5f * scale),
             heavyShips = Mathf.RoundToInt(0.6f * scale),
-            spawnInterval = Mathf.Max(0.4f, 2f - 0.05f * (waveNumber - 1))
+            spawnInterval = Mathf.Max(0.35f, 2.2f - 0.08f * (waveNumber - 1))
         };
 
         if (plan.isBossWave)

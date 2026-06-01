@@ -15,7 +15,7 @@ MonoBehaviour:
   shipType: 3
   displayName: Korsan Amiral Gemisi (Boss)
   maxHealth: 1800
-  moveSpeed: 1.8
+  moveSpeed: 7
   attackDamage: 70
   attackInterval: 1.5
-  prefab: {fileID: 0}
+  prefab: {fileID: 7248301137230801317, guid: 0f6b6ae78f1ae2d43b1df30f338644f1, type: 3}

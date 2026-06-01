@@ -1,0 +1,19 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="project://database/Assets/UI/Common/Common.uss" />
+    <ui:Style src="DefeatScreen.uss" />
+    
+    <ui:VisualElement name="defeatRoot" class="defeat-root" picking-mode="Ignore">
+        <ui:VisualElement class="panel defeat-panel" picking-mode="Position">
+            <ui:Label text="MAĞLUBİYET" class="label defeat-title" />
+            
+            <ui:VisualElement class="defeat-stats">
+                <ui:Label name="survivedWavesLabel" text="Hayatta Kalınan Dalga: 0" class="label defeat-stat-text" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="defeat-buttons">
+                <ui:Button name="restartButton" text="YENİDEN DENE" class="menu-button" />
+                <ui:Button name="menuButton" text="ANA MENÜ" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

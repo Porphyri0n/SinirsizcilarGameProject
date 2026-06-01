@@ -1,0 +1,88 @@
+/*
+2026-05-31 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+.hud-root {
+    flex-grow: 1;
+    padding: var(--spacing-lg);
+    justify-content: space-between;
+}
+
+.hud-top {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.hud-bottom {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.wave-panel {
+    align-items: center;
+}
+
+.wave-text {
+    font-size: 24px;
+    color: var(--color-accent);
+}
+
+.timer-text {
+    font-size: 18px;
+}
+
+.stats-panel {
+    width: 250px;
+}
+
+.stat-label {
+    font-size: 12px;
+    margin-bottom: 2px;
+}
+
+.resource-panel {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 500px;
+}
+
+.resource-item {
+    flex-direction: row;
+    align-items: center;
+    margin-left: 8px;
+    margin-bottom: 4px;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.resource-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: var(--spacing-sm);
+    background-color: #555; /* Fallback color */
+}
+
+.resource-amount {
+    font-size: 16px;
+    color: white;
+    -unity-font-style: bold;
+}
+
+.crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    margin-top: -6px;
+    margin-left: -6px;
+    background-color: white;
+    border-radius: 6px;
+    border-width: 2px;
+    border-color: rgba(0, 0, 0, 0.5);
+}

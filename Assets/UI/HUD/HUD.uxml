@@ -1,0 +1,80 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="project://database/Assets/UI/Common/Common.uss" />
+    <ui:Style src="HUD.uss" />
+    
+    <ui:VisualElement name="hudRoot" class="hud-root" picking-mode="Ignore">
+        
+        <!-- TOP SECTION: Wave and Timer -->
+        <ui:VisualElement name="hudTop" class="hud-top" picking-mode="Ignore">
+            <ui:VisualElement name="wavePanel" class="panel wave-panel" picking-mode="Position">
+                <ui:Label name="waveLabel" text="DALGA 1" class="label wave-text" picking-mode="Ignore" />
+                <ui:Label name="timerLabel" text="HAZIRLIK: 30s" class="label timer-text" picking-mode="Ignore" />
+            </ui:VisualElement>
+            
+            <ui:VisualElement name="resourcePanel" class="resource-panel" picking-mode="Ignore">
+                <ui:VisualElement name="woodRes" class="resource-item" picking-mode="Position">
+                    <ui:VisualElement name="woodIcon" class="resource-icon" picking-mode="Ignore" />
+                    <ui:Label name="woodAmount" text="0" class="label resource-amount" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="stoneRes" class="resource-item" picking-mode="Position">
+                    <ui:VisualElement name="stoneIcon" class="resource-icon" picking-mode="Ignore" />
+                    <ui:Label name="stoneAmount" text="0" class="label resource-amount" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="ironRes" class="resource-item" picking-mode="Position">
+                    <ui:VisualElement name="ironIcon" class="resource-icon" picking-mode="Ignore" />
+                    <ui:Label name="ironAmount" text="0" class="label resource-amount" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="steelRes" class="resource-item" picking-mode="Position">
+                    <ui:VisualElement name="steelIcon" class="resource-icon" picking-mode="Ignore" />
+                    <ui:Label name="steelAmount" text="0" class="label resource-amount" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="goldRes" class="resource-item" picking-mode="Position">
+                    <ui:VisualElement name="goldIcon" class="resource-icon" picking-mode="Ignore" />
+                    <ui:Label name="goldAmount" text="0" class="label resource-amount" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="crystalRes" class="resource-item" picking-mode="Position">
+                    <ui:VisualElement name="crystalIcon" class="resource-icon" picking-mode="Ignore" />
+                    <ui:Label name="crystalAmount" text="0" class="label resource-amount" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+</ui:VisualElement>
+
+        <!-- CROSSHAIR -->
+        <ui:VisualElement name="crosshair" class="crosshair" picking-mode="Ignore" />
+
+        <!-- BOTTOM SECTION: Health Bars -->
+        <ui:VisualElement name="hudBottom" class="hud-bottom" picking-mode="Ignore">
+            <ui:VisualElement name="playerStats" class="panel stats-panel" picking-mode="Position">
+                <ui:Label text="OYUNCU" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="playerHpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" />
+                </ui:VisualElement>
+                
+                <ui:Label text="ENERJİ" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="playerEnergyFill" class="progress-bar-fill energy-fill" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="castleStats" class="panel stats-panel" picking-mode="Position">
+                <ui:Label text="KALE CANI" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="castleHpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="wallsStats" class="panel stats-panel" picking-mode="Position">
+                <ui:Label text="SUR 1 CANI" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="wall1HpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" style="background-color: #7d7d7d;" />
+                </ui:VisualElement>
+                
+                <ui:Label text="SUR 2 CANI" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="wall2HpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" style="background-color: #7d7d7d;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+</ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

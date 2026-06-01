@@ -31,11 +31,13 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float maxPitch = 60f;
 
     private CharacterController controller;
+    private PlayerStamina stamina;
     private Vector3 verticalVelocity;            // Sadece dikey hız (yerçekimi + zıplama)
+    private Vector3 impulseVelocity;             // Saldırı vb. anlık itmeler
     private float speedMultiplier = 1f;          // CarrySystem vb. için hız ölçekleyici (1 = normal)
 
     private Vector3 smoothedMoveDir;             // Yon yumusatma icin
-    private float currentSpeed;                  // SmoothDamp ile yumusatilmis yatay hiz
+private float currentSpeed;                  // SmoothDamp ile yumusatilmis yatay hiz
     private float speedDampVel;
     private float coyoteCounter;
     private float jumpBufferCounter;
@@ -49,19 +51,21 @@ public class PlayerController : MonoBehaviour
     public bool IsSprinting { get; private set; }
     public bool IsMoving { get; private set; }
     public bool JustLanded { get; private set; }   // Bir karelik bayrak — ses/efekt icin
+    public float VerticalVelocityY => verticalVelocity.y;
 
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        stamina = GetComponent<PlayerStamina>();
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
     }
 
     private void OnEnable()
     {
-        // Script aktif olduğunda cursor'ı kilitle
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        // OnEnable içerisinde anında kilitlemek yerine Update kontrolüne bırakıyoruz.
+        // Böylece Lobby gibi durumlarda cursor serbest kalır ve diğer oyuncuların 
+        // spawn olması local cursor'ı etkilemez.
     }
 
     private void OnDisable()
@@ -86,10 +90,37 @@ public class PlayerController : MonoBehaviour
         }
     }
 
+    private bool wasGameStarted;
+
     private void Update()
     {
-        // İmleci oyuna almak için tıklama kontrolü
-        if (Input.GetMouseButtonDown(0))
+        // UI üzerindeysek girişleri atla
+        bool isUIActive = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+        
+        // Oyun başlama durumunu kontrol et
+        bool gameStarted = false;
+        if (GameStateSync.Instance != null && GameStateSync.Instance.IsSpawned)
+        {
+            gameStarted = GameStateSync.Instance.GameStarted.Value;
+        }
+        else if (GameNetworkManager.Instance != null)
+        {
+            gameStarted = GameNetworkManager.Instance.GameStarted;
+        }
+
+        // Oyun ilk başladığında cursor'ı otomatik kilitlemeyi dene
+        if (gameStarted && !wasGameStarted)
+        {
+            wasGameStarted = true;
+            if (!isUIActive)
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+            }
+        }
+
+        // İmleci oyuna almak için tıklama kontrolü (sadece UI dışına tıklandığında ve oyun başladıysa)
+        if (Input.GetMouseButtonDown(0) && !isUIActive && gameStarted)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -102,8 +133,37 @@ public class PlayerController : MonoBehaviour
             Cursor.visible = true;
         }
 
-        HandleMovement();
-        HandleGravityAndJump();
+        // Yerçekimi her zaman uygulanmalı (oyun başladıysa), böylece karakter havada asılı kalmaz.
+        if (gameStarted)
+        {
+            HandleGravityAndJump();
+            HandleImpulse();
+            
+            // Hareket sadece cursor kilitliyken
+            if (Cursor.lockState == CursorLockMode.Locked)
+            {
+                HandleMovement();
+            }
+            else
+            {
+                IsMoving = false;
+                currentSpeed = 0f;
+            }
+        }
+    }
+
+    private void HandleImpulse()
+    {
+        if (impulseVelocity.sqrMagnitude > 0.001f)
+        {
+            controller.Move(impulseVelocity * Time.deltaTime);
+            impulseVelocity = Vector3.Lerp(impulseVelocity, Vector3.zero, 10f * Time.deltaTime);
+        }
+    }
+
+    public void ApplyImpulse(Vector3 impulse)
+    {
+        impulseVelocity += impulse;
     }
 
     private void LateUpdate()
@@ -139,10 +199,25 @@ public class PlayerController : MonoBehaviour
             input.Normalize();
 
         IsMoving = input.sqrMagnitude > 0.01f;
-        IsSprinting = IsMoving && Input.GetKey(KeyCode.LeftShift);
+        
+        bool wantsToSprint = Input.GetKey(KeyCode.LeftShift);
+        bool canSprint = IsMoving && wantsToSprint && (stamina == null || stamina.HasStamina);
+        IsSprinting = canSprint;
+
+        if (stamina != null)
+        {
+            if (IsSprinting)
+            {
+                stamina.ConsumeStamina(GameConstants.PLAYER_STAMINA_CONSUMPTION * Time.deltaTime);
+            }
+            else
+            {
+                stamina.RegenerateStamina(GameConstants.PLAYER_STAMINA_REGEN * Time.deltaTime);
+            }
+        }
 
         float targetSpeed = IsMoving ? (IsSprinting ? sprintSpeed : moveSpeed) * speedMultiplier : 0f;
-        // Hizi anlik degil yumusak yaklastir — kalkis ve durus daha agirlikli hissediyor
+// Hizi anlik degil yumusak yaklastir — kalkis ve durus daha agirlikli hissediyor
         currentSpeed = Mathf.SmoothDamp(currentSpeed, targetSpeed, ref speedDampVel, accelerationTime);
 
         Vector3 rawDir = Vector3.zero;
@@ -203,73 +278,5 @@ public class PlayerController : MonoBehaviour
     public void SetSpeedMultiplier(float multiplier)
     {
         speedMultiplier = Mathf.Max(0f, multiplier);
-    }
-}
-
-// Oyuncu state'lerini Animator'a aktarır. Locomotion (Speed/Grounded), taşıma ve blok bool'ları,
-// zıplama/saldırı trigger'ları buradan set edilir; asıl animasyon GEÇİŞLERİ Animator state machine'inde tanımlıdır.
-// Ragdoll sırasında Animator kapalı olduğundan (RagdollController) güncelleme atlanır.
-public class PlayerAnimator : MonoBehaviour
-{
-    [SerializeField] private Animator animator;
-    [SerializeField] private PlayerController controller;
-    [SerializeField] private PlayerCombat combat;
-    [SerializeField] private CarrySystem carry;
-    [SerializeField] private float speedDamp = 0.12f;   // Speed parametresi yumuşatma süresi
-
-    private static readonly int SpeedHash = Animator.StringToHash("Speed");
-    private static readonly int GroundedHash = Animator.StringToHash("Grounded");
-    private static readonly int CarryingHash = Animator.StringToHash("Carrying");
-    private static readonly int BlockingHash = Animator.StringToHash("Blocking");
-    private static readonly int JumpHash = Animator.StringToHash("Jump");
-    private static readonly int AttackHash = Animator.StringToHash("Attack");
-
-    private bool wasGrounded = true;
-    private bool wasOnCooldown;
-
-    private void Awake()
-    {
-        if (animator == null) animator = GetComponentInChildren<Animator>();
-        if (controller == null) controller = GetComponent<PlayerController>();
-        if (combat == null) combat = GetComponent<PlayerCombat>();
-        if (carry == null) carry = GetComponent<CarrySystem>();
-    }
-
-    private void Update()
-    {
-        if (animator == null || !animator.enabled) return;   // ragdoll'dayken Animator kapalı
-
-        UpdateLocomotion();
-        UpdateActions();
-    }
-
-    private void UpdateLocomotion()
-    {
-        // 0 = idle, 0.5 = yürüme, 1 = koşu (blend tree eşikleri)
-        float targetSpeed = 0f;
-        if (controller != null && controller.IsMoving)
-            targetSpeed = controller.IsSprinting ? 1f : 0.5f;
-
-        animator.SetFloat(SpeedHash, targetSpeed, speedDamp, Time.deltaTime);
-
-        bool grounded = controller == null || controller.IsGrounded;
-        animator.SetBool(GroundedHash, grounded);
-
-        // Yerden ayrılma anında zıplama geçişi
-        if (wasGrounded && !grounded)
-            animator.SetTrigger(JumpHash);
-        wasGrounded = grounded;
-    }
-
-    private void UpdateActions()
-    {
-        if (carry != null) animator.SetBool(CarryingHash, carry.IsCarrying);
-        if (combat != null) animator.SetBool(BlockingHash, combat.IsBlocking);
-
-        // Saldırı cooldown'u yeni başladıysa bir saldırı tetiklendi demektir → Attack geçişi
-        bool onCooldown = combat != null && combat.IsOnAttackCooldown;
-        if (onCooldown && !wasOnCooldown)
-            animator.SetTrigger(AttackHash);
-        wasOnCooldown = onCooldown;
     }
 }

@@ -13,7 +13,7 @@ public class LootDistributor : MonoBehaviour
     [Header("Drop Bolgesi")]
     [SerializeField] private Transform castleCenter;
     [SerializeField] private float dropRadius = 12f;
-    [SerializeField] private float dropY = 0f;                  // sabit zemin yuksekligi
+    [SerializeField] private float dropY = -2f;                  // castle floor level
 
     [Header("Miktar")]
     [SerializeField] private int baseLootPerWave = 3;
@@ -29,8 +29,12 @@ public class LootDistributor : MonoBehaviour
     [Range(0f, 1f)]
     [SerializeField] private float potionChance = 0.25f;
 
+    [Header("Prefablar")]
+    [SerializeField] private GameObject resourceLootPrefab;
+    [SerializeField] private GameObject potionLootPrefab;
+
     private float castleHpAtWaveStart;
-    private bool tracking;
+private bool tracking;
 
     private void Awake()
     {
@@ -71,9 +75,27 @@ public class LootDistributor : MonoBehaviour
         {
             Vector3 pos = RandomDropPosition();
             LootType type = PickLootType();
+            
+            SpawnLoot(pos, type);
             EventBus.FireLootDropped(pos, type);
         }
         tracking = false;
+    }
+
+    private void SpawnLoot(Vector3 pos, LootType type)
+    {
+        GameObject prefab = type == LootType.Potion ? potionLootPrefab : resourceLootPrefab;
+        if (prefab == null) return;
+
+        GameObject obj = Instantiate(prefab, pos + Vector3.up * 5f, Quaternion.identity);
+        
+        // Yere düşme hissi için ufak bir rastgele itiş
+        Rigidbody rb = obj.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            Vector3 force = new Vector3(UnityEngine.Random.Range(-1f, 1f), 2f, UnityEngine.Random.Range(-1f, 1f));
+            rb.AddForce(force, ForceMode.Impulse);
+        }
     }
 
     private int ComputeLootCount(int waveNumber)

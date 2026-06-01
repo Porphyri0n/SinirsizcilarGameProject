@@ -20,6 +20,15 @@ public class TowerAiming : MonoBehaviour
     [SerializeField] private Color validColor = Color.green;    // menzilde, canlı hedef → geçerli atış
     [SerializeField] private Color invalidColor = Color.red;    // menzil dışı veya hedef yok
 
+    [Header("Ayarlar")]
+    [SerializeField] private float sensitivity = 2f;
+    [SerializeField] private float minPitch = -20f;
+    [SerializeField] private float maxPitch = 45f;
+
+    private float currentYaw;
+    private float currentPitch;
+    private bool wasOccupied;
+
     private void Awake()
     {
         if (tower == null) tower = GetComponent<TowerController>();
@@ -32,23 +41,48 @@ public class TowerAiming : MonoBehaviour
 
     private void Update()
     {
-        if (tower == null || !tower.IsOccupied) return;
-        if (towerCamera == null || aimPivot == null) return;
+        if (tower == null || !tower.IsOccupied)
+        {
+            wasOccupied = false;
+            return;
+        }
 
+        if (!wasOccupied)
+        {
+            // Giriş yapıldığında mevcut rotasyonu yakala
+            Vector3 euler = aimPivot.eulerAngles;
+            currentYaw = euler.y;
+            currentPitch = euler.x;
+            if (currentPitch > 180f) currentPitch -= 360f;
+            wasOccupied = true;
+        }
+
+        // Mouse Look: Cursor'ı kilitle
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        float mouseX = Input.GetAxis("Mouse X") * sensitivity;
+        float mouseY = Input.GetAxis("Mouse Y") * sensitivity;
+
+        currentYaw += mouseX;
+        currentPitch -= mouseY;
+        currentPitch = Mathf.Clamp(currentPitch, minPitch, maxPitch);
+
+        Vector3 aimDir = Quaternion.Euler(currentPitch, currentYaw, 0f) * Vector3.forward;
+        tower.Operate(aimDir);
+
+        // Menzil göstergesi için hedef nokta tespiti
         Vector3 target = GetAimPoint(out IDamageable aimed);
-        Vector3 dir = target - aimPivot.position;
-        if (dir.sqrMagnitude < 0.0001f) return;
-
-        tower.Operate(dir);
         UpdateRangeLine(target, IsValidShot(target, aimed));
     }
 
-    // Mouse → kamera ray → ilk çarpılan yüzey; ıskalarsa maxAimDistance kadar ileri nokta.
-    // aimed: çarpılan nesnedeki IDamageable (varsa) — atış geçerliliği için.
+    // Kamera veya Pivot ileri yönüne raycast
     private Vector3 GetAimPoint(out IDamageable aimed)
     {
         aimed = null;
-        Ray ray = towerCamera.ScreenPointToRay(Input.mousePosition);
+        Transform rayOrigin = towerCamera != null ? towerCamera.transform : aimPivot;
+        Ray ray = new Ray(rayOrigin.position, rayOrigin.forward);
+        
         if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask))
         {
             aimed = hit.collider.GetComponentInParent<IDamageable>();
@@ -61,7 +95,7 @@ public class TowerAiming : MonoBehaviour
     private bool IsValidShot(Vector3 target, IDamageable aimed)
     {
         if (Vector3.Distance(aimPivot.position, target) > tower.Range) return false;
-        return aimed != null && aimed.IsAlive;
+        return aimed != null && (aimed.IsAlive);
     }
 
     private void UpdateRangeLine(Vector3 target, bool valid)

@@ -1,0 +1,58 @@
+/*
+2026-05-31 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+.defeat-root {
+    flex-grow: 1;
+    background-color: rgba(0, 0, 0, 0.85);
+    justify-content: center;
+    align-items: center;
+    display: none;
+}
+
+.defeat-panel {
+    width: 400px;
+    align-items: center;
+    border-color: var(--color-health);
+    border-width: 2px;
+}
+
+.defeat-title {
+    font-size: 48px;
+    color: var(--color-health);
+    margin-bottom: var(--spacing-lg);
+}
+
+.defeat-stats {
+    margin-bottom: var(--spacing-lg);
+}
+
+.defeat-stat-text {
+    font-size: 20px;
+    color: white;
+}
+
+.defeat-buttons {
+    flex-direction: row;
+    margin-top: var(--spacing-lg);
+}
+
+.menu-button {
+    background-color: #333;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    margin: 0 var(--spacing-md);
+    border-width: 1px;
+    border-color: #555;
+    transition-duration: 0.1s;
+}
+
+.menu-button:hover {
+    background-color: #444;
+    border-color: var(--color-accent);
+}
+
+.menu-button:active {
+    background-color: #222;
+}

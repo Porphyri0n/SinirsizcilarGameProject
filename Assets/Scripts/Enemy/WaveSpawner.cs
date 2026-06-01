@@ -74,7 +74,8 @@ public class WaveSpawner : MonoBehaviour
 
         Transform point = NextSpawnPoint();
         Vector3 pos = point != null ? point.position : transform.position;
-        Quaternion rot = point != null ? point.rotation : Quaternion.identity;
+        // Apply 90 degree offset to fix sideways orientation
+        Quaternion rot = point != null ? point.rotation * Quaternion.Euler(0, 90, 0) : Quaternion.Euler(0, 90, 0);
 
         GameObject ship = SpawnObject(shipData.prefab, pos, rot);
 

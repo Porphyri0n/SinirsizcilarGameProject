@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="project://database/Assets/UI/Common/Common.uss" />
+    <ui:VisualElement name="respawnRoot" style="flex-grow: 1; align-items: center; justify-content: center; background-color: rgba(0, 0, 0, 0.7);">
+        <ui:VisualElement style="padding: 40px; background-color: rgba(40, 40, 40, 0.9); border-width: 2px; border-color: rgb(200, 50, 50); border-radius: 10px;">
+            <ui:Label text="ÖLDÜN" style="font-size: 40px; color: rgb(255, 50, 50); -unity-font-style: bold; margin-bottom: 20px; -unity-text-align: middle-center;" />
+            <ui:Label name="countdownLabel" text="YENİDEN DOĞUŞA: 15s" style="font-size: 24px; color: white; -unity-text-align: middle-center;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

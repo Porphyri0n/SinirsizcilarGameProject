@@ -1,4 +1,4 @@
-using System;
+using Unity.Netcode;
 using UnityEngine;
 
 // Oyuncu spawn ve revive yaşam döngüsü.
@@ -6,7 +6,7 @@ using UnityEngine;
 // Ölünce hareket/savaş/etkileşim kontrolünü kapatır; ragdoll fiziğini RagdollController yönetir.
 // EventBus.OnPlayerRevived kendi ID'miz için gelince: can full + kontrol geri verilir
 // (ragdoll kapatma RagdollController'da). Revive yerinde olur (sela cesedi diriltir), ışınlama yok.
-public class PlayerSpawnController : MonoBehaviour
+public class PlayerSpawnController : NetworkBehaviour
 {
     [Header("Referanslar")]
     [SerializeField] private PlayerHealth playerHealth;
@@ -41,13 +41,65 @@ public class PlayerSpawnController : MonoBehaviour
         EventBus.OnPlayerRevived -= HandleRevived;
     }
 
-    private void Start()
+    public override void OnNetworkSpawn()
     {
-        if (spawnPoint != null)
-            TeleportTo(spawnPoint.position, spawnPoint.rotation);
+        // Network ID'sini tüm bileşenlere yay
+        int id = (int)OwnerClientId;
+        SetPlayerID(id);
+        if (playerHealth != null) playerHealth.SetPlayerID(id);
+        
+        // Diğer bileşenleri de bul ve set et
+        GetComponent<PlayerCombat>()?.SetPlayerID(id);
+        GetComponent<RagdollController>()?.SetPlayerID(id);
+        GetComponent<WeaponManager>()?.SetPlayerID(id);
+        GetComponent<PotionSystem>()?.SetPlayerID(id);
 
-        if (playerHealth != null) playerHealth.ResetHealth();
-        SetControlEnabled(true);
+        // Sahibi olduğumuz (kendi) karakterimizi spawn noktasına yerleştiriyoruz.
+        // Client-authoritative (Owner write) sistemlerde her oyuncu kendini ışınlamalıdır.
+        if (IsOwner)
+        {
+            if (spawnPoint == null)
+            {
+                GameObject sp = GameObject.Find("PlayerSpawnPoint");
+                if (sp != null) spawnPoint = sp.transform;
+            }
+
+            if (spawnPoint != null)
+            {
+                Vector3 pos = spawnPoint.position;
+                // OwnerClientId'ye göre oyuncuları hafif kaydırarak iç içe geçmelerini önle.
+                pos += new Vector3((OwnerClientId % 3) * 1.5f, 0, (OwnerClientId / 3) * 1.5f);
+                
+                TeleportTo(pos, spawnPoint.rotation);
+            }
+
+            if (playerHealth != null) playerHealth.ResetHealth();
+        }
+        
+        // Oyun başlama durumunu kontrol et.
+        bool gameStarted = false;
+        if (GameStateSync.Instance != null && GameStateSync.Instance.IsSpawned)
+        {
+            gameStarted = GameStateSync.Instance.GameStarted.Value;
+        }
+        else if (GameNetworkManager.Instance != null)
+        {
+            gameStarted = GameNetworkManager.Instance.GameStarted;
+        }
+        else
+        {
+            // Eğer hiçbir sistem bulunamadıysa (örn. test sahneleri), kontrolü açık bırak.
+            gameStarted = true;
+        }
+
+        if (gameStarted)
+        {
+            SetControlEnabled(true);
+        }
+        else
+        {
+            SetControlEnabled(false);
+        }
     }
 
     private void HandleDeath()
@@ -59,6 +111,25 @@ public class PlayerSpawnController : MonoBehaviour
     private void HandleRevived(int revivedID)
     {
         if (revivedID != playerID) return;
+
+        // Işınlanma: Başlangıç spawn noktasına geri dön.
+        if (IsOwner)
+        {
+            if (spawnPoint == null)
+            {
+                GameObject sp = GameObject.Find("PlayerSpawnPoint");
+                if (sp != null) spawnPoint = sp.transform;
+            }
+
+            if (spawnPoint != null)
+            {
+                Vector3 pos = spawnPoint.position;
+                // OwnerClientId'ye göre oyuncuları hafif kaydırarak iç içe geçmelerini önle.
+                pos += new Vector3((OwnerClientId % 3) * 1.5f, 0, (OwnerClientId / 3) * 1.5f);
+                
+                TeleportTo(pos, spawnPoint.rotation);
+            }
+        }
 
         if (playerHealth != null) playerHealth.ResetHealth();   // can full
         SetControlEnabled(true);                                // kontrol geri ver

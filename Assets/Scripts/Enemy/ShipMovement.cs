@@ -23,28 +23,52 @@ public class ShipMovement : MonoBehaviour
         formationOffset = Vector3.zero;
     }
 
+    private float currentSpeed = 0f;
+    [SerializeField] private float acceleration = 0.5f;
+
     private void Update()
     {
         if (HasArrived) return;
 
-        bool hasTarget = shoreTarget != null;
-        Vector3 dest = hasTarget ? shoreTarget.position + formationOffset : transform.position + Vector3.back;
-        dest.y = transform.position.y;      // su seviyesinde kal
+        if (shoreTarget == null) return;
 
-        if (hasTarget && (dest - transform.position).sqrMagnitude <= arrivalDistance * arrivalDistance)
+        // Sadece Z ekseninde hedef belirle. X ve Y mevcut pozisyonda kalsın.
+        float targetZ = shoreTarget.position.z + formationOffset.z;
+        Vector3 dest = new Vector3(transform.position.x, transform.position.y, targetZ);
+
+        float distanceToTarget = Mathf.Abs(dest.z - transform.position.z);
+
+        // Varış kontrolü (Sadece Z mesafesine bakıyoruz)
+        if (distanceToTarget <= arrivalDistance)
         {
             HasArrived = true;
+            currentSpeed = 0f;
             OnReachedShore?.Invoke();
             return;
         }
 
+        // Gemi gibi yavaş yavaş hızlanma ve sona yaklaşınca yavaşlama
+        float targetSpeed = MoveSpeed;
+        
+        // Basit bir yavaşlama mantığı (son 15 birimde yavaşla)
+        if (distanceToTarget < 15f)
+        {
+            targetSpeed = Mathf.Lerp(0.2f, MoveSpeed, distanceToTarget / 15f);
+        }
+
+        currentSpeed = Mathf.MoveTowards(currentSpeed, targetSpeed, acceleration * Time.deltaTime);
+
+        /* 
+        // Dönüş mantığı devre dışı — Kullanıcı rotasyonun korunmasını istiyor
         Vector3 dir = dest - transform.position;
         if (dir.sqrMagnitude > 0.0001f)
         {
             Quaternion look = Quaternion.LookRotation(dir.normalized);
             transform.rotation = Quaternion.Slerp(transform.rotation, look, turnSpeed * Time.deltaTime);
         }
-        transform.position = Vector3.MoveTowards(transform.position, dest, MoveSpeed * Time.deltaTime);
+        */
+
+        transform.position = Vector3.MoveTowards(transform.position, dest, currentSpeed * Time.deltaTime);
     }
 
     // WaveSpawner sahildeki hedef noktayı buradan verir.

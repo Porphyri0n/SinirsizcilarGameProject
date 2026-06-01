@@ -50,11 +50,36 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
         UpdateDamageVisuals();
     }
 
+    private void Start()
+    {
+        if (CastleWalls.Instance != null)
+        {
+            CastleWalls.Instance.RegisterWall(this);
+        }
+    }
+
     public void TakeDamage(float amount, Vector3 hitPoint)
     {
         if (!IsAlive || amount <= 0f)
             return;
 
+        // Merkezi yönetim üzerinden hasar ver
+        if (CastleWalls.Instance != null)
+        {
+            CastleWalls.Instance.TakeDamage(this, amount, hitPoint);
+        }
+        else
+        {
+            // Manager yoksa doğrudan hasar al (yedek mekanizma)
+            ApplyDamageInternal(amount, hitPoint);
+        }
+    }
+
+    /// <summary>
+    /// CastleWalls tarafından çağrılan asıl hasar uygulama metodu.
+    /// </summary>
+    public void ApplyDamageInternal(float amount, Vector3 hitPoint)
+    {
         currentHealth = Mathf.Max(0f, currentHealth - amount);
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
         UpdateDamageVisuals();
@@ -76,6 +101,12 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
 
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
         UpdateDamageVisuals();
+
+        // Merkezi UI güncellemesi
+        if (CastleWalls.Instance != null)
+        {
+            CastleWalls.Instance.UpdateUI();
+        }
     }
 
     private void HandleDestroyed()
@@ -84,6 +115,10 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
             destroyedEffect.SetActive(true);
 
         OnDeath?.Invoke();
+
+        // Duvarların canı 0'a indiğinde surlar destroy olmalı (sahneden silinmeli).
+        // Efektlerin ve seslerin tetiklenmesi için çok kısa bir süre bekleyip siliyoruz.
+        Destroy(gameObject, 0.2f);
     }
 
     /// <summary>Can yüzdesine göre doğru hasar aşamasını aktifleştirir (eşikler: %100 sağlam, %50 çatlak, %25 ağır hasar).</summary>

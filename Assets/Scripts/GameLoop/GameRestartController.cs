@@ -1,10 +1,11 @@
 using System;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using Unity.Netcode;
 
 // Oyun bittikten sonra yeni bir oyun baslatmak icin tek giris noktasi.
-// RestartGame cagrilinca OnGameRestart yayinlar; tum sistemler bunu dinleyip
-// kendi state'lerini sifirlar (WaveManager, EconomyManager, CastleHealth vs).
-// UI veya host input'u (R tusu, menu butonu) burayi cagirir.
+// RestartGame cagrilinca network'u kapatir ve sahneyi yeniden yukler.
+// Boylece her sey (Lobi, oyuncular, dunya) sifirdan baslar.
 public class GameRestartController : MonoBehaviour
 {
     public static GameRestartController Instance { get; private set; }
@@ -40,8 +41,22 @@ public class GameRestartController : MonoBehaviour
     // Disaridan da cagrilabilir (UI butonu, network RPC).
     public void RestartGame()
     {
-        gameOver = false;
-        EventBus.FireGameRestart();
+        Debug.Log("[GameRestartController] Restarting game via full scene reload.");
+        
+        if (GameNetworkManager.Instance != null)
+        {
+            GameNetworkManager.Instance.ResetGameState();
+        }
+
+        EventBus.ClearAll();
+
+        if (NetworkManager.Singleton != null)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        // Sahneyi yeniden yuklemek tum singleton'lari ve state'leri (GameNetworkManager haric DDOL olanlari) temizler.
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     private void HandleGameLost(int survivedWaves)

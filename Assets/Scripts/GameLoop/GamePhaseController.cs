@@ -17,6 +17,7 @@ public class GamePhaseController : MonoBehaviour
     private float prepTimer;
     private int lastCompletedWave;
     private bool gameOver;   // Kale yıkıldıktan sonra faz geçişlerini durdurur
+    private bool gameStarted = false;
 
     public GamePhase CurrentPhase => currentPhase;
     public float PrepTimeLeft => currentPhase == GamePhase.Prep ? prepTimer : 0f;
@@ -50,16 +51,33 @@ public class GamePhaseController : MonoBehaviour
     {
         gameOver = false;
         lastCompletedWave = 0;
+        gameStarted = true;
         EnterPrep();
     }
 
     private void Start()
     {
-        EnterPrep();
+        // Don't start automatically. We'll start when GameStateSync notifies us.
     }
 
     private void Update()
     {
+        // Debug/Skip: P tuşuyla faz atla (Sadece Host)
+        if (Input.GetKeyDown(KeyCode.P) && AuthorityManager.CanChangePhase())
+        {
+            SkipCurrentPhase();
+        }
+
+        if (!gameStarted)
+        {
+            if (GameStateSync.Instance != null && GameStateSync.Instance.GameStarted.Value)
+            {
+                gameStarted = true;
+                EnterPrep();
+            }
+            return;
+        }
+
         if (gameOver || currentPhase != GamePhase.Prep) return;
 
         prepTimer -= Time.deltaTime;
@@ -67,8 +85,25 @@ public class GamePhaseController : MonoBehaviour
             EnterWave();
     }
 
-    private void EnterPrep()
+    public void SkipCurrentPhase()
     {
+        if (currentPhase == GamePhase.Prep)
+        {
+            Debug.Log("[GamePhaseController] Prep phase skipped by user.");
+            EnterWave();
+        }
+        else if (currentPhase == GamePhase.Wave)
+        {
+            if (WaveManager.Instance != null && WaveManager.Instance.WaveActive)
+            {
+                Debug.Log("[GamePhaseController] Wave phase skipped by user.");
+                WaveManager.Instance.ForceEndWave();
+            }
+        }
+    }
+
+    private void EnterPrep()
+{
         currentPhase = GamePhase.Prep;
         prepTimer = CurrentPrepDuration();
         CaravanDueThisPrep = IsCaravanWave(UpcomingWave);

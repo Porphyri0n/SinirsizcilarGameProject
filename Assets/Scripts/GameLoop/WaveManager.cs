@@ -81,8 +81,18 @@ public class WaveManager : MonoBehaviour
             EventBus.FireBossWaveStart(currentWave);
     }
 
-    private void HandleShipDestroyed(ShipType type, Vector3 pos)
+    // Wave'i zorla bitirir (Skip için).
+    public void ForceEndWave()
     {
+        if (!waveActive) return;
+        
+        waveActive = false;
+        remainingShips = 0;
+        EventBus.FireWaveEnd(currentWave);
+    }
+
+    private void HandleShipDestroyed(ShipType type, Vector3 pos)
+{
         if (!waveActive) return;
 
         remainingShips = Mathf.Max(0, remainingShips - 1);

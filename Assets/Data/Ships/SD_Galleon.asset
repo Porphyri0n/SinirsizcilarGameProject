@@ -15,7 +15,7 @@ MonoBehaviour:
   shipType: 2
   displayName: "Galleon (A\u011F\u0131r Gemi)"
   maxHealth: 600
-  moveSpeed: 2
+  moveSpeed: 8
   attackDamage: 45
   attackInterval: 2
-  prefab: {fileID: 0}
+  prefab: {fileID: 449050729673618603, guid: ce08a578e7594e14bb9b1c7b144ccb58, type: 3}

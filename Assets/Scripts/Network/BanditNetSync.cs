@@ -90,8 +90,17 @@ public class BanditNetSync : NetworkBehaviour
 
     // ── RPC'ler ─────────────────────────────────────────────────────────
 
+    [Rpc(SendTo.Server)]
+    public void RequestTakeDamageRpc(float amount, Vector3 hitPoint)
+    {
+        if (health != null && health.IsAlive)
+        {
+            health.TakeDamage(amount, hitPoint);
+        }
+    }
+
     [Rpc(SendTo.NotOwner)]
-    private void RPC_BanditSpawnRpc(Vector3 pos, Quaternion rot)
+private void RPC_BanditSpawnRpc(Vector3 pos, Quaternion rot)
     {
         transform.SetPositionAndRotation(pos, rot);
         if (!gameObject.activeSelf) gameObject.SetActive(true);

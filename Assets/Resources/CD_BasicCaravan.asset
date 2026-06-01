@@ -24,4 +24,4 @@ MonoBehaviour:
     amount: 2
   banditChance: 0.3
   minWaveForAdvanced: 5
-  prefab: {fileID: 0}
+  prefab: {fileID: 6025771244716572228, guid: c4955b6a65e054648add4804c45dfbef, type: 3}

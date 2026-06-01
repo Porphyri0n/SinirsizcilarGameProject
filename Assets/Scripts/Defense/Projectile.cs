@@ -34,6 +34,13 @@ public class Projectile : MonoBehaviour
     public void Launch(Vector3 direction, float speed, float damage,
                        float splashRadius, bool useGravity, GameObject owner = null)
     {
+        if (rb == null) rb = GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            Debug.LogError("[Projectile] Rigidbody component is missing on " + gameObject.name, gameObject);
+            return;
+        }
+
         this.damage = damage;
         this.splashRadius = splashRadius;
         this.owner = owner;
@@ -87,12 +94,25 @@ public class Projectile : MonoBehaviour
         ProcessHit(other, other.ClosestPoint(transform.position));
     }
 
+    private void OnCollisionEnter(Collision collision)
+    {
+        if (!launched || hasHit) return;
+        if (IsOwnerCollider(collision.collider)) return;
+        if (((1 << collision.gameObject.layer) & hitMask) == 0) return;
+
+        ProcessHit(collision.collider, collision.contacts.Length > 0 ? collision.contacts[0].point : transform.position);
+    }
+
     // Sweep ve trigger yolları buradan geçer; hasHit çift isabeti engeller.
     private void ProcessHit(Collider hit, Vector3 point)
     {
         // Ölü/batan gemi hâlâ collider taşır; mermi ona takılmadan içinden geçip
         // arkadaki canlı hedefe gitsin (yoksa atışlar ölü gemilerde boşa gidiyordu).
         IDamageable target = hit.GetComponentInParent<IDamageable>();
+        
+        // DEBUG LOG: Hangi objeye çarptık ve IDamageable bulduk mu?
+        Debug.Log($"[Projectile] Hit: {hit.name}, TargetFound: {target != null}, Layer: {LayerMask.LayerToName(hit.gameObject.layer)}");
+
         if (target != null && !target.IsAlive) return;
 
         hasHit = true;
@@ -106,7 +126,11 @@ public class Projectile : MonoBehaviour
     }
 
     private bool IsOwnerCollider(Collider col)
-        => owner != null && col.transform.IsChildOf(owner.transform);
+    {
+        // Kendimize veya sahibimize (kule/gemi) çarpmayalım
+        if (col.transform.IsChildOf(transform)) return true;
+        return owner != null && col.transform.IsChildOf(owner.transform);
+    }
 
     private void ApplySplashDamage(Vector3 center)
     {

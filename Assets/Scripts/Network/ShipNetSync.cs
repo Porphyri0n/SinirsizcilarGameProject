@@ -49,6 +49,8 @@ public class ShipNetSync : NetworkBehaviour
 
     private void Update()
     {
+        if (!IsSpawned) return;
+
         if (IsServer)
         {
             netPosition.Value = transform.position;

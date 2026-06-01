@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="project://database/Assets/UI/Common/Common.uss" />
+    <ui:Style src="UpgradePanel.uss" />
+    
+    <ui:VisualElement name="upgradeRoot" class="upgrade-root" picking-mode="Ignore">
+        <ui:VisualElement class="panel upgrade-panel" picking-mode="Position">
+            <ui:Button name="closeButton" text="X" class="close-button" />
+            <ui:Label name="headerLabel" text="YÜKSELTME" class="label upgrade-header" />
+            
+            <ui:VisualElement class="upgrade-info">
+                <ui:Label name="descriptionLabel" text="Bir sonraki seviyeye yükseltmek istiyor musunuz?" class="label upgrade-description" />
+                <ui:VisualElement name="costList" class="cost-container" />
+            </ui:VisualElement>
+
+            <ui:Button name="upgradeButton" text="YÜKSELT" class="menu-button upgrade-button" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
