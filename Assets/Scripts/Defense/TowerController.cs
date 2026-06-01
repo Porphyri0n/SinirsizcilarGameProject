@@ -133,7 +133,7 @@ private int operatorPlayerID = -1;
         GameObject obj = Instantiate(projectilePrefab, origin.position, Quaternion.LookRotation(dir));
         Projectile projectile = obj.GetComponent<Projectile>();
         if (projectile != null)
-            projectile.Launch(dir, projectileSpeed, Damage, SplashRadius, ProjectileUsesGravity, gameObject);
+            projectile.Launch(dir, projectileSpeed, Damage, SplashRadius, ProjectileUsesGravity, ProjectileTeam.Player, gameObject, Operator);
 
         // Feedback: VFX
         if (muzzleFlashPrefab != null)

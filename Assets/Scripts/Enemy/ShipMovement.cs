@@ -8,7 +8,6 @@ public class ShipMovement : MonoBehaviour
     [SerializeField] private ShipData shipData;
     [SerializeField] private Transform shoreTarget;     // Sahildeki iniş noktası — WaveSpawner bağlar
     [SerializeField] private float arrivalDistance = 1.5f;
-    [SerializeField] private float turnSpeed = 4f;
 
     private Vector3 formationOffset;                    // her gemiye farklı slot — sahilde üst üste binmesin
 

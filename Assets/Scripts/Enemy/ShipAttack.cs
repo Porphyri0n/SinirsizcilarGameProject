@@ -114,7 +114,7 @@ private bool isAttacking;
         {
             // Projectile.Launch içinde rb.linearVelocity = direction.normalized * speed yapılıyor.
             // Bu yüzden direction ve hızı ayrı veriyoruz.
-            projectile.Launch(launchVelocity.normalized, launchVelocity.magnitude, AttackDamage, 0f, true, gameObject);
+            projectile.Launch(launchVelocity.normalized, launchVelocity.magnitude, AttackDamage, 0f, true, ProjectileTeam.Enemy, gameObject);
         }
     }
 

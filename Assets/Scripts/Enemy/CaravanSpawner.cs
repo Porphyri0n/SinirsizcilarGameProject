@@ -8,7 +8,7 @@ public class CaravanSpawner : NetworkBehaviour
     [Header("Ayarlar")]
     [SerializeField] private GameObject caravanPrefab;
     [SerializeField] private CaravanData caravanData;
-    [SerializeField] private float spawnInterval = 20f;    // Prep fazında kaç saniyede bir kervan doğsun
+    [SerializeField] private float initialSpawnDelay = 3f; // Prep başladıktan kaç sn sonra (tek) kervan gelsin
     
     [Header("Konumlar")]
     [SerializeField] private Transform[] spawnPoints;      // Harita Güney (patika başı)
@@ -16,7 +16,7 @@ public class CaravanSpawner : NetworkBehaviour
     [SerializeField] private Transform exitTarget;         // Harita çıkış noktası
 
     private Transform spawnPoint; // Current picked spawn point for the instance
-    private Coroutine periodicSpawnRoutine;
+    private Coroutine singleSpawnRoutine;
 
     public override void OnNetworkSpawn()
     {
@@ -31,7 +31,7 @@ public class CaravanSpawner : NetworkBehaviour
         if (IsServer)
         {
             EventBus.OnPhaseChanged -= HandlePhaseChanged;
-            if (periodicSpawnRoutine != null) StopCoroutine(periodicSpawnRoutine);
+            if (singleSpawnRoutine != null) StopCoroutine(singleSpawnRoutine);
         }
     }
 
@@ -45,29 +45,26 @@ public class CaravanSpawner : NetworkBehaviour
 
         if (phase == GamePhase.Prep)
         {
-            if (periodicSpawnRoutine != null) StopCoroutine(periodicSpawnRoutine);
-            periodicSpawnRoutine = StartCoroutine(PeriodicSpawnRoutine());
+            // Her prep'te SADECE BİR kervan gelsin.
+            if (singleSpawnRoutine != null) StopCoroutine(singleSpawnRoutine);
+            singleSpawnRoutine = StartCoroutine(SpawnOnceRoutine());
         }
         else
         {
-            if (periodicSpawnRoutine != null)
+            if (singleSpawnRoutine != null)
             {
-                StopCoroutine(periodicSpawnRoutine);
-                periodicSpawnRoutine = null;
+                StopCoroutine(singleSpawnRoutine);
+                singleSpawnRoutine = null;
             }
         }
     }
 
-    private System.Collections.IEnumerator PeriodicSpawnRoutine()
+    private System.Collections.IEnumerator SpawnOnceRoutine()
     {
-        // İlk kervan faz başladıktan kısa süre sonra gelsin
-        yield return new WaitForSeconds(3f);
-
-        while (true)
-        {
-            StartCoroutine(SpawnSequence());
-            yield return new WaitForSeconds(spawnInterval);
-        }
+        // Faz başladıktan kısa süre sonra TEK kervan gelsin (prep başına bir kez)
+        yield return new WaitForSeconds(initialSpawnDelay);
+        StartCoroutine(SpawnSequence());
+        singleSpawnRoutine = null;
     }
 
     // Manuel veya test amaçlı tetiklemek için
@@ -83,6 +80,9 @@ public class CaravanSpawner : NetworkBehaviour
             Debug.LogWarning("[CaravanSpawner] Prefab veya SpawnPoints atanmamış!");
             yield break;
         }
+
+        // Yeni kervan doğmadan önce, önceki prep'ten kalan (lootlanmamış/yok edilmemiş) kervanı temizle.
+        DespawnExistingCaravans();
 
         Transform sp = spawnPoints[Random.Range(0, spawnPoints.Length)];
         if (sp == null) yield break;
@@ -117,6 +117,19 @@ public class CaravanSpawner : NetworkBehaviour
         }
         
         Debug.Log($"[CaravanSpawner] Kervan doğuruldu ve başlatıldı.");
+    }
+
+    // Sahnedeki tüm mevcut kervanları kaldırır (yeni kervan gelince eskisi yok olsun diye).
+    private void DespawnExistingCaravans()
+    {
+        GameObject[] caravans = GameObject.FindGameObjectsWithTag(GameConstants.TAG_CARAVAN);
+        foreach (GameObject go in caravans)
+        {
+            if (go == null) continue;
+            NetworkObject netObj = go.GetComponent<NetworkObject>();
+            if (netObj != null && netObj.IsSpawned) netObj.Despawn();
+            else Destroy(go);
+        }
     }
 
     private void SpawnCaravan()

@@ -42,8 +42,8 @@ public class LateJoinSync : NetworkBehaviour
 
     // ── Client -> Server: Bilgi Talebi ───────────────────────────────────
 
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestStateServerRpc(ServerRpcParams rpcParams = default)
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestStateServerRpc(RpcParams rpcParams = default)
     {
         ulong clientId = rpcParams.Receive.SenderClientId;
 

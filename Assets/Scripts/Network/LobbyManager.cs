@@ -167,7 +167,7 @@ OnLobbyChanged?.Invoke();
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void SetReadyServerRpc(ulong clientId, bool ready)
     {
         playerReadyStates[clientId] = ready;

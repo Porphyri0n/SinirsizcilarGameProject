@@ -80,15 +80,12 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
 
     private void HandleReachedCastle()
     {
-        if (!IsServer || !IsAlive || netDelivered.Value || netInteracted.Value) return;
+        if (!IsServer || !IsAlive || netInteracted.Value) return;
 
-        netDelivered.Value = true;
+        // Kaleye vardi: burada DUR ve bekle. Otomatik teslim/geri donus YOK.
+        // Oyuncu E ile lootlayana ya da haydutlar yok edene kadar burada bekler.
         netState.Value = CaravanState.Arrived;
-        EventBus.FireCaravanArrived(data);      // CaravanReceiver kargoyu burada teslim alir
-
-        // Teslimden sonra geri donus
-        netState.Value = CaravanState.Departing;
-        if (movement != null) movement.BeginDepart();
+        if (movement != null) movement.StopMoving();
     }
 
     private void HandleDeparted()
@@ -147,31 +144,50 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
         RequestInteractionServerRpc();
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestInteractionServerRpc()
     {
         if (netInteracted.Value || netDelivered.Value || !IsAlive) return;
         netInteracted.Value = true;
 
-        // Rastgele kaynak ve miktar
-        ResourceType[] types = { ResourceType.Wood, ResourceType.Stone, ResourceType.Iron };
-        ResourceType type = types[UnityEngine.Random.Range(0, types.Length)];
-        int amount = UnityEngine.Random.Range(10, 26); // 10-25 arası
+        // Kervanin GERCEK kargosunu encode edip tum client'lara teslim et.
+        // Self-contained: sahnede CaravanReceiver olmasa da loot calisir.
+        if (data != null && data.cargo != null)
+        {
+            int[] types = new int[data.cargo.Length];
+            int[] amounts = new int[data.cargo.Length];
+            int idx = 0;
+            foreach (CaravanCargoEntry entry in data.cargo)
+            {
+                if (entry == null || entry.amount <= 0) continue;
+                types[idx] = (int)entry.resourceType;
+                amounts[idx] = entry.amount;
+                idx++;
+            }
+            if (idx > 0)
+            {
+                Array.Resize(ref types, idx);
+                Array.Resize(ref amounts, idx);
+                DeliverCargoClientRpc(types, amounts);
+            }
+        }
 
-        // Tüm client'lara bildir (Economy Sync için)
-        NotifyResourceReceivedClientRpc(type, amount);
-        
-        Debug.Log($"[Caravan Server] Interaction processed. Despawning...");
+        Debug.Log("[Caravan Server] Looted — kargo teslim edildi, geri donuluyor.");
 
-        // Yok et
-        if (NetworkObject != null && NetworkObject.IsSpawned)
-            NetworkObject.Despawn();
+        // Lootlandi: TakeDamage artik no-op (dayaniksiz degil) ve kervan geri doner.
+        netState.Value = CaravanState.Departing;
+        if (movement != null) movement.BeginDepart();
     }
 
     [ClientRpc]
-    private void NotifyResourceReceivedClientRpc(ResourceType type, int amount)
+    private void DeliverCargoClientRpc(int[] types, int[] amounts)
     {
-        EventBus.FireResourceReceived(type, amount);
-        Debug.Log($"<color=green>[Kervan]</color> {amount} {type} alındı!");
+        int count = Mathf.Min(types.Length, amounts.Length);
+        for (int i = 0; i < count; i++)
+        {
+            ResourceType type = (ResourceType)types[i];
+            EventBus.FireResourceReceived(type, amounts[i]);
+            Debug.Log($"<color=green>[Kervan]</color> {amounts[i]} {type} alindi!");
+        }
     }
 }

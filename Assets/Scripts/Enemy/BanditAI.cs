@@ -253,9 +253,26 @@ public class BanditAI : MonoBehaviour
         }
     }
 
+    // Sahnede saldırılabilir (yaşayan) bir kervan var mı?
+    private bool HasLivingCaravan()
+    {
+        GameObject[] caravans = GameObject.FindGameObjectsWithTag(GameConstants.TAG_CARAVAN);
+        foreach (GameObject go in caravans)
+        {
+            if (go == null) continue;
+            CaravanController c = go.GetComponent<CaravanController>();
+            if (c != null && c.IsAlive) return true;
+        }
+        return false;
+    }
+
     private void HandleDamaged(float current, float max)
     {
         if (current <= 0f) return;
+
+        // Kervan önceliği: yaşayan bir kervan varken, hasar alsak bile hedefi bırakıp
+        // oyuncuya dönme — haydutlar kervana saldırmayı sürdürür.
+        if (HasLivingCaravan()) return;
 
         GameObject[] players = GameObject.FindGameObjectsWithTag(GameConstants.TAG_PLAYER);
         Transform nearest = null;

@@ -1,124 +1,108 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using Unity.Netcode;
 
-// Kervan yaklaşırken haydut pusu kurar. Şans tutarsa ticaret yolundaki ağaçlardan haydut spawn eder.
-// Şans wave ilerledikçe artar: BANDIT_BASE_CHANCE + wave * BANDIT_CHANCE_INCREASE.
+// Her prep fazında BİR kez haydut baskını kurar — kervan spawn olduktan 1-1.5sn sonra.
+// Haydut sayısı yaklaşan wave'e göre ölçeklenir: her BOSS_WAVE_INTERVAL (5) wave'de bir artar.
+// 5'in katı wave'lerde (5, 10, 15...) +1 boss haydut eklenir; başlarda (wave < 5) boss gelmez.
 // Pusu kurulunca EventBus.FireBanditRaid(count, position) ile herkese haber verilir.
 public class BanditSpawner : MonoBehaviour
 {
     [SerializeField] private BanditData[] banditTypes;      // Raider, Brute SO'ları
     [SerializeField] private Transform[] ambushPoints;      // Ağaçlık alandaki pusu noktaları (doğu/batı yolu)
-    [SerializeField] private int minBandits = 2;
-    [SerializeField] private int maxBandits = 4;
     [SerializeField] private float spawnSpread = 1.5f;      // Aynı noktaya yığılmasınlar diye dağıtma yarıçapı
-    [SerializeField] private float prepRaidInterval = 30f;  // Prep fazında kervandan bağımsız kaç saniyede bir haydut gelsin
 
-    private int currentWave;
-    private int banditsRemainingInPhase;
+    [Header("Dalga Ölçekleme")]
+    [SerializeField] private int baseBanditCount = 3;           // İlk dalgalardaki temel haydut sayısı
+    [SerializeField] private int extraBanditsPer5Waves = 2;     // Her 5 wave'de bir eklenen haydut sayısı
+    [Tooltip("5'in katı wave'lerde gelen boss haydut. Atanmazsa boss spawn olmaz.")]
+    [SerializeField] private BanditData bossBanditData;         // Boss haydut SO'su (Inspector'dan atanır)
+
+    [Header("Zamanlama")]
+    [SerializeField] private float banditSpawnDelayMin = 0.5f;  // Kervan spawn'ından sonra min bekleme
+    [SerializeField] private float banditSpawnDelayMax = 0.5f;  // Kervan spawn'ından sonra max bekleme
+
+    private bool raidSpawnedThisPrep;       // Her prep'te tek baskın olsun diye kilit
+    private Coroutine raidRoutine;
 
     private bool IsServer => NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
 
     private void OnEnable()
     {
-        EventBus.OnCaravanApproaching += HandleCaravanApproaching;
-        EventBus.OnWaveStart += HandleWaveStart;
         EventBus.OnPhaseChanged += HandlePhaseChanged;
+        EventBus.OnCaravanApproaching += HandleCaravanApproaching;
     }
 
     private void OnDisable()
     {
-        EventBus.OnCaravanApproaching -= HandleCaravanApproaching;
-        EventBus.OnWaveStart -= HandleWaveStart;
         EventBus.OnPhaseChanged -= HandlePhaseChanged;
+        EventBus.OnCaravanApproaching -= HandleCaravanApproaching;
     }
 
-    private void HandleWaveStart(int waveNumber)
-    {
-        currentWave = waveNumber;       // şans hesabı için en güncel wave'i tut
-    }
-
+    // Prep'e girince baskın kilidini sıfırla; prep dışına çıkınca bekleyen baskını iptal et.
     private void HandlePhaseChanged(GamePhase phase)
     {
-        if (!IsServer) return;
-
         if (phase == GamePhase.Prep)
         {
-            // Hazırlık aşaması başında bütçeyi belirle: ilk sefere 5, sonra her dalga +4
-            banditsRemainingInPhase = 5 + (currentWave * 4);
-            Debug.Log($"[BanditSpawner] Prep phase started. Bandit budget for this phase: {banditsRemainingInPhase}");
+            raidSpawnedThisPrep = false;
+        }
+        else if (raidRoutine != null)
+        {
+            StopCoroutine(raidRoutine);
+            raidRoutine = null;
         }
     }
 
-    // Kervan (CaravanController.Launch) yaklaşırken tetiklenir.
-    private void HandleCaravanApproaching(CaravanData caravan)
+    // Kervan spawn olunca (FireCaravanApproaching) tetiklenir: 1-1.5sn sonra bu prep'in
+    // tek haydut baskınını başlatır. Sadece server, prep başına bir kez.
+    private void HandleCaravanApproaching(CaravanData data)
     {
         if (!IsServer) return;
+        if (raidSpawnedThisPrep) return;
 
-        // Kullanıcı isteği: Sadece hazırlık aşamasında kervanlarla beraber spawn olsunlar.
-        // Toplam bütçe bitene kadar kervanlara dağıtıyoruz.
-        if (banditsRemainingInPhase <= 0) return;
+        raidSpawnedThisPrep = true;
+        raidRoutine = StartCoroutine(SpawnRaidAfterDelay());
+    }
 
-        // Bu kervanla kaç haydut geleceğini rastgele seçiyoruz (0, 1 veya 2)
-        // Böylece her kervan baskın yapmaz, "hangi karavanla geleceği spawnera kalmış" olur.
-        int toSpawn = UnityEngine.Random.Range(0, 3); 
-        toSpawn = Mathf.Min(toSpawn, banditsRemainingInPhase);
+    private IEnumerator SpawnRaidAfterDelay()
+    {
+        float delay = UnityEngine.Random.Range(banditSpawnDelayMin, banditSpawnDelayMax);
+        yield return new WaitForSeconds(delay);
+        SpawnPrepRaid();
+        raidRoutine = null;
+    }
 
-        if (toSpawn <= 0) return;
+    // Yaklaşan wave'e göre haydutları tek seferde spawn eder.
+    private void SpawnPrepRaid()
+    {
+        int wave = CurrentWaveForScaling();
+
+        // Temel sayı + her 5 wave'de bir artış (wave 1-4: base, 5-9: base+step, 10-14: base+2*step...)
+        int count = baseBanditCount + (wave / GameConstants.BOSS_WAVE_INTERVAL) * extraBanditsPer5Waves;
+        count = Mathf.Max(0, count);
 
         Vector3 ambush = PickAmbushPoint();
-        Debug.Log($"[BanditSpawner] Caravan approaching. Spawning {toSpawn} bandits from budget. Remaining: {banditsRemainingInPhase - toSpawn}");
+        int spawned = 0;
 
-        for (int i = 0; i < toSpawn; i++)
-            SpawnBandit(ambush);
+        for (int i = 0; i < count; i++)
+            if (SpawnBandit(PickBanditData(), ambush)) spawned++;
 
-        banditsRemainingInPhase -= toSpawn;
-        EventBus.FireBanditRaid(toSpawn, ambush);
-    }
+        // Boss haydut yalnızca 5'in katı wave'lerde (5, 10, 15...); başlarda gelmez.
+        bool bossDue = bossBanditData != null && WaveScaler.IsBossWave(wave);
+        if (bossDue && SpawnBandit(bossBanditData, ambush)) spawned++;
 
-    private bool RollForRaid()
-    {
-        // İlk dalgada (wave 0) kervan baskınlarını devre dışı bırakıyoruz, 
-        // çünkü toplam 5 haydut zaten hazırlık (prep) aşamasında spawn ediliyor.
-        if (currentWave == 0) return false;
-
-        float chance = Mathf.Clamp01(GameConstants.BANDIT_BASE_CHANCE + currentWave * GameConstants.BANDIT_CHANCE_INCREASE);
-        return UnityEngine.Random.value < chance;
-    }
-
-    private void SpawnBandit(Vector3 center)
-    {
-        BanditData data = PickBanditData();
-        if (data == null) { Debug.LogError("[BanditSpawner] PickBanditData returned null!"); return; }
-        if (data.prefab == null) { Debug.LogError($"[BanditSpawner] Prefab for {data.name} is null!"); return; }
-
-        Vector2 offset = UnityEngine.Random.insideUnitCircle * spawnSpread;
-        Vector3 pos = center + new Vector3(offset.x, 0f, offset.y);
-
-        Debug.Log($"[BanditSpawner] Instantiating bandit prefab: {data.prefab.name} at {pos}");
-        GameObject bandit = SpawnObject(data.prefab, pos, Quaternion.identity);
-
-        if (bandit != null)
+        if (spawned > 0)
         {
-            // Network üzerinden tüm client'larda spawn et
-            NetworkObject netObj = bandit.GetComponent<NetworkObject>();
-            if (netObj != null && !netObj.IsSpawned) 
-                netObj.Spawn();
-
-            BanditHealth health = bandit.GetComponent<BanditHealth>();
-            if (health != null) health.Configure(data);
-            Debug.Log("[BanditSpawner] Bandit spawned and configured successfully.");
-        }
-        else
-        {
-            Debug.LogError("[BanditSpawner] Failed to instantiate bandit!");
+            Debug.Log($"[BanditSpawner] Prep raid — wave {wave}: {spawned} haydut (boss: {bossDue}).");
+            EventBus.FireBanditRaid(spawned, ambush);
         }
     }
 
-    private BanditData PickBanditData()
+    // Prep sırasında "o anki" wave = yaklaşan wave. GamePhaseController otorite kaynağı.
+    private int CurrentWaveForScaling()
     {
-        if (banditTypes == null || banditTypes.Length == 0) return null;
-        return banditTypes[UnityEngine.Random.Range(0, banditTypes.Length)];
+        return GamePhaseController.Instance != null ? GamePhaseController.Instance.UpcomingWave : 1;
     }
 
     // Manuel veya dış sistemlerden tetiklemek için.
@@ -127,10 +111,39 @@ public class BanditSpawner : MonoBehaviour
         if (!IsServer) return;
 
         Vector3 ambush = PickAmbushPoint();
+        int spawned = 0;
         for (int i = 0; i < count; i++)
-            SpawnBandit(ambush);
+            if (SpawnBandit(PickBanditData(), ambush)) spawned++;
 
-        EventBus.FireBanditRaid(count, ambush);
+        if (spawned > 0)
+            EventBus.FireBanditRaid(spawned, ambush);
+    }
+
+    private bool SpawnBandit(BanditData data, Vector3 center)
+    {
+        if (data == null) { Debug.LogError("[BanditSpawner] PickBanditData/bossBanditData null!"); return false; }
+        if (data.prefab == null) { Debug.LogError($"[BanditSpawner] Prefab for {data.name} is null!"); return false; }
+
+        Vector2 offset = UnityEngine.Random.insideUnitCircle * spawnSpread;
+        Vector3 pos = center + new Vector3(offset.x, 0f, offset.y);
+
+        GameObject bandit = SpawnObject(data.prefab, pos, Quaternion.identity);
+        if (bandit == null) { Debug.LogError("[BanditSpawner] Failed to instantiate bandit!"); return false; }
+
+        // Network üzerinden tüm client'larda spawn et
+        NetworkObject netObj = bandit.GetComponent<NetworkObject>();
+        if (netObj != null && !netObj.IsSpawned)
+            netObj.Spawn();
+
+        BanditHealth health = bandit.GetComponent<BanditHealth>();
+        if (health != null) health.Configure(data);
+        return true;
+    }
+
+    private BanditData PickBanditData()
+    {
+        if (banditTypes == null || banditTypes.Length == 0) return null;
+        return banditTypes[UnityEngine.Random.Range(0, banditTypes.Length)];
     }
 
     private Vector3 PickAmbushPoint()

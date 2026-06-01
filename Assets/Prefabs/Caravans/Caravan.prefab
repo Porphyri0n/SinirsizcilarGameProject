@@ -48,7 +48,7 @@ GameObject:
   - component: {fileID: 7124564298710888526}
   m_Layer: 11
   m_Name: Caravan
-  m_TagString: Interactable
+  m_TagString: Caravan
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

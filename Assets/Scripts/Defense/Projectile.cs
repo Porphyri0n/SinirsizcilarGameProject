@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+
+// Merminin hangi tarafa ait olduğu — dost ateşi (friendly fire) filtresi için.
+public enum ProjectileTeam { Player, Enemy }
 
 // Kule mermisi — Rigidbody ile uçar, çarpınca IDamageable'a hasar verir.
 // Cannon mermisi: yerçekimi açık (parabolik). Archer oku: yerçekimi kapalı (düz, hızlı).
@@ -17,7 +21,9 @@ public class Projectile : MonoBehaviour
     private float splashRadius;
     private bool launched;
     private float spawnTime;
-    private GameObject owner;       // Kuleyi kullanan oyuncuya / kuleye geri vurmamak için
+    private GameObject owner;       // Atan kule/gemi — kendine geri vurmamak için
+    private GameObject operatorToIgnore;    // Kuleyi kullanan oyuncu — kendi atışıyla kendini vurmasın
+    private ProjectileTeam team;            // Player atışı dost yapılara, Enemy atışı diğer düşmanlara vurmaz
     private Vector3 lastPosition;   // tunneling kontrolü — bir önceki frame konumu
     private bool hasHit;            // tek isabet: sweep + OnTriggerEnter çift saymasın
 
@@ -32,7 +38,8 @@ public class Projectile : MonoBehaviour
     // Kule (CannonTower / ArcherTower) bunu spawn'dan sonra çağırır.
     // useGravity true → top güllesi parabolik, false → düz ok.
     public void Launch(Vector3 direction, float speed, float damage,
-                       float splashRadius, bool useGravity, GameObject owner = null)
+                       float splashRadius, bool useGravity, ProjectileTeam team,
+                       GameObject owner = null, GameObject operatorToIgnore = null)
     {
         if (rb == null) rb = GetComponent<Rigidbody>();
         if (rb == null)
@@ -44,6 +51,8 @@ public class Projectile : MonoBehaviour
         this.damage = damage;
         this.splashRadius = splashRadius;
         this.owner = owner;
+        this.operatorToIgnore = operatorToIgnore;
+        this.team = team;
         spawnTime = Time.time;
         launched = true;
         hasHit = false;
@@ -119,7 +128,7 @@ public class Projectile : MonoBehaviour
 
         if (splashRadius > 0f)
             ApplySplashDamage(point);
-        else if (target != null)
+        else if (target != null && !IsFriendlyTarget(target))
             target.TakeDamage(damage, point);
 
         if (destroyOnHit) Destroy(gameObject);
@@ -127,20 +136,42 @@ public class Projectile : MonoBehaviour
 
     private bool IsOwnerCollider(Collider col)
     {
-        // Kendimize veya sahibimize (kule/gemi) çarpmayalım
+        // Kendimize, sahibimize (kule/gemi) veya kuleyi kullanan operatöre çarpmayalım
         if (col.transform.IsChildOf(transform)) return true;
-        return owner != null && col.transform.IsChildOf(owner.transform);
+        if (owner != null && col.transform.IsChildOf(owner.transform)) return true;
+        return operatorToIgnore != null && col.transform.IsChildOf(operatorToIgnore.transform);
     }
 
     private void ApplySplashDamage(Vector3 center)
     {
         Collider[] hits = Physics.OverlapSphere(center, splashRadius, hitMask);
+        // Aynı hedef birden çok collider taşıyabilir (sur: hasar aşamaları + WallTop + taban).
+        // Hedef başına TEK kez hasar uygula; yoksa tek gülle N×damage verip instakill yapar.
+        HashSet<IDamageable> damaged = new HashSet<IDamageable>();
         foreach (Collider col in hits)
         {
             if (owner != null && col.transform.IsChildOf(owner.transform)) continue;
+            if (operatorToIgnore != null && col.transform.IsChildOf(operatorToIgnore.transform)) continue;
             IDamageable target = col.GetComponentInParent<IDamageable>();
             if (target == null || !target.IsAlive) continue;
+            if (IsFriendlyTarget(target)) continue;
+            if (!damaged.Add(target)) continue;
             target.TakeDamage(damage, center);
         }
+    }
+
+    // Dost ateşi filtresi. Player atışı kendi yapılarına (sur/kule/kale) hasar vermez;
+    // Enemy atışı diğer düşmanlara (gemi/haydut) vurmaz. Oyuncular kasıtlı hedef olabilir
+    // (friendly fire açık) — operatörün kendisi ayrıca IsOwnerCollider ile muaf tutulur.
+    private bool IsFriendlyTarget(IDamageable target)
+    {
+        Component comp = target as Component;
+        if (comp == null) return false;
+        GameObject go = comp.gameObject;
+
+        if (team == ProjectileTeam.Player)
+            return go.CompareTag(GameConstants.TAG_DEFENSE) || go.CompareTag(GameConstants.TAG_CASTLE);
+
+        return go.CompareTag(GameConstants.TAG_ENEMY) || go.CompareTag(GameConstants.TAG_BANDIT);
     }
 }
