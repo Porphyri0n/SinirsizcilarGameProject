@@ -100,7 +100,6 @@ Transform:
   m_Children:
   - {fileID: 7182729672600874652}
   - {fileID: 1248016941020181503}
-  - {fileID: 6921933265728822140}
   - {fileID: 7831198691055797371}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -116,7 +115,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 286664311
+  GlobalObjectIdHash: 1520777953
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -149,6 +148,10 @@ MonoBehaviour:
   muzzle: {fileID: 7941473009227219694}
   projectileSpeed: 35
   enterPrompt: '[E] Kuleye Gir'
+  muzzleFlashPrefab: {fileID: 0}
+  fireSound: {fileID: 0}
+  fireShakeMagnitude: 0.25
+  fireShakeDuration: 0.15
 --- !u!114 &5128473837097619637
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -272,12 +275,12 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8080718880471215822}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.1305262, y: 0, z: 0, w: 0.9914449}
-  m_LocalPosition: {x: 0, y: 3.5, z: -1.2}
+  m_LocalRotation: {x: 0.1305262, y: -0, z: -0, w: 0.9914449}
+  m_LocalPosition: {x: 0, y: 0.70000005, z: -1.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 4117647314494065803}
+  m_Father: {fileID: 1248016941020181503}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!20 &4978270629149829552
 Camera:
@@ -361,6 +364,7 @@ Transform:
   m_Children:
   - {fileID: 5148811291509464501}
   - {fileID: 7941473009227219694}
+  - {fileID: 6921933265728822140}
   m_Father: {fileID: 4117647314494065803}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &997075735881176483

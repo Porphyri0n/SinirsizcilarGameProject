@@ -1,0 +1,25 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <ui:Style src="project://database/Assets/UI/Common/Common.uss" />
+    <ui:Style src="CraftingMenu.uss" />
+    
+    <ui:VisualElement name="craftingRoot" class="crafting-root" picking-mode="Ignore">
+        <ui:VisualElement class="panel crafting-panel" picking-mode="Position">
+            <ui:Button name="closeButton" text="X" class="close-button" />
+            
+            <ui:VisualElement class="recipe-list">
+                <ui:Label text="TARİFLER" class="label" style="font-size: 20px; margin-bottom: 10px;" />
+                <ui:ScrollView name="recipeScrollView" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="recipe-details">
+                <ui:Label name="recipeTitle" text="Tarif Seçin" class="label" style="font-size: 18px;" />
+                <ui:VisualElement name="recipeIcon" style="width: 100px; height: 100px; margin: 20px 0;" />
+                
+                <ui:Label text="MALZEMELER" class="label" style="font-size: 14px; margin-bottom: 5px;" />
+                <ui:VisualElement name="ingredientList" style="width: 100%;" />
+
+                <ui:Button name="craftButton" text="ÜRET" class="menu-button craft-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

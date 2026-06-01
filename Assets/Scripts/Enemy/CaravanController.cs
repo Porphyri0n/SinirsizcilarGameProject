@@ -1,28 +1,29 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Ticari kervan beyni — CaravanData ile yapilandirilir, CaravanMovement ile yol alir.
 // CaravanState ile durum yonetir: Approaching -> (UnderAttack) -> Arrived -> Departing.
 // IDamageable: haydut saldirisinda can kaybeder; can 0 olursa kervan yok edilir, kargo kaybolur.
-// Prep phase'de her 2 wave'de bir gelme zamanlamasi spawner'a (host) aittir; burada Launch ile baslatilir.
 [RequireComponent(typeof(CaravanMovement))]
-public class CaravanController : MonoBehaviour, IDamageable
+public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
 {
     [SerializeField] private CaravanData data;
     [SerializeField] private CaravanMovement movement;
 
-    private float currentHealth;
-    private CaravanState state;
-    private bool destroyed;
-    private bool delivered;
+    private readonly NetworkVariable<float> netHealth = new NetworkVariable<float>(100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<CaravanState> netState = new NetworkVariable<CaravanState>(CaravanState.Approaching, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> netDelivered = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> netInteracted = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> netDestroyed = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    public CaravanState State => state;
+    public CaravanState State => netState.Value;
     public CaravanData Data => data;
 
     // ── IDamageable ──────────────────────────────────────────────────────
-    public float CurrentHealth => currentHealth;
+    public float CurrentHealth => netHealth.Value;
     public float MaxHealth => data != null ? data.maxHealth : 0f;
-    public bool IsAlive => !destroyed && currentHealth > 0f;
+    public bool IsAlive => !netDestroyed.Value && netHealth.Value > 0f;
     public event Action OnDeath;
 
     private void Awake()
@@ -54,11 +55,15 @@ public class CaravanController : MonoBehaviour, IDamageable
         data = BuildRuntimeData(caravanData, wave);
         if (movement != null) movement.Configure(data);
 
-        currentHealth = MaxHealth;
-        destroyed = false;
-        delivered = false;
+        if (IsServer)
+        {
+            netHealth.Value = MaxHealth;
+            netDestroyed.Value = false;
+            netDelivered.Value = false;
+            netInteracted.Value = false;
+            netState.Value = CaravanState.Approaching;
+        }
 
-        state = CaravanState.Approaching;
         EventBus.FireCaravanApproaching(data);
         if (movement != null) movement.BeginApproach();
     }
@@ -75,48 +80,98 @@ public class CaravanController : MonoBehaviour, IDamageable
 
     private void HandleReachedCastle()
     {
-        if (!IsAlive || delivered) return;
+        if (!IsServer || !IsAlive || netDelivered.Value || netInteracted.Value) return;
 
-        delivered = true;
-        state = CaravanState.Arrived;
+        netDelivered.Value = true;
+        netState.Value = CaravanState.Arrived;
         EventBus.FireCaravanArrived(data);      // CaravanReceiver kargoyu burada teslim alir
 
         // Teslimden sonra geri donus
-        state = CaravanState.Departing;
+        netState.Value = CaravanState.Departing;
         if (movement != null) movement.BeginDepart();
     }
 
     private void HandleDeparted()
     {
-        Destroy(gameObject);        // yol cikisina ulasti, sahneden kalkar
+        if (IsServer)
+        {
+            if (NetworkObject != null && NetworkObject.IsSpawned)
+                NetworkObject.Despawn();
+            else
+                Destroy(gameObject);
+        }
     }
 
     // ── IDamageable: haydut saldirisi ────────────────────────────────────
     public void TakeDamage(float amount, Vector3 hitPoint)
     {
-        if (!IsAlive || amount <= 0f) return;
+        if (!IsServer || !IsAlive || amount <= 0f || netInteracted.Value) return;
 
         // Yolculuk sirasinda ilk hasarda saldiri altinda durumuna gec
-        if (state == CaravanState.Approaching)
+        if (netState.Value == CaravanState.Approaching)
         {
-            state = CaravanState.UnderAttack;
+            netState.Value = CaravanState.UnderAttack;
             EventBus.FireCaravanUnderAttack(transform.position);
         }
 
-        currentHealth = Mathf.Max(0f, currentHealth - amount);
+        netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
 
-        if (currentHealth <= 0f)
+        if (netHealth.Value <= 0f)
             HandleDestroyed();
     }
 
     private void HandleDestroyed()
     {
-        if (destroyed) return;
-        destroyed = true;
+        if (!IsServer || netDestroyed.Value) return;
+        netDestroyed.Value = true;
 
         // Kargo kaybolur — teslim edilmediyse FireCaravanArrived hic cagrilmaz
         EventBus.FireCaravanDestroyed();
         OnDeath?.Invoke();
-        Destroy(gameObject);
+        
+        if (NetworkObject != null && NetworkObject.IsSpawned)
+            NetworkObject.Despawn();
+        else
+            Destroy(gameObject);
+    }
+
+    // ── IInteractable ────────────────────────────────────────────────────
+    public string GetInteractPrompt() => "[E] Kaynak Al";
+    public bool CanInteract(GameObject player) => IsAlive && !netInteracted.Value && !netDelivered.Value;
+
+    public void Interact(GameObject player)
+    {
+        if (netInteracted.Value) return;
+        
+        Debug.Log("[Caravan] Interact requested locally.");
+        RequestInteractionServerRpc();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestInteractionServerRpc()
+    {
+        if (netInteracted.Value || netDelivered.Value || !IsAlive) return;
+        netInteracted.Value = true;
+
+        // Rastgele kaynak ve miktar
+        ResourceType[] types = { ResourceType.Wood, ResourceType.Stone, ResourceType.Iron };
+        ResourceType type = types[UnityEngine.Random.Range(0, types.Length)];
+        int amount = UnityEngine.Random.Range(10, 26); // 10-25 arası
+
+        // Tüm client'lara bildir (Economy Sync için)
+        NotifyResourceReceivedClientRpc(type, amount);
+        
+        Debug.Log($"[Caravan Server] Interaction processed. Despawning...");
+
+        // Yok et
+        if (NetworkObject != null && NetworkObject.IsSpawned)
+            NetworkObject.Despawn();
+    }
+
+    [ClientRpc]
+    private void NotifyResourceReceivedClientRpc(ResourceType type, int amount)
+    {
+        EventBus.FireResourceReceived(type, amount);
+        Debug.Log($"<color=green>[Kervan]</color> {amount} {type} alındı!");
     }
 }

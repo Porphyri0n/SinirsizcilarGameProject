@@ -28,7 +28,11 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
     public string GetInteractPrompt() => interactPrompt;
     public bool CanInteract(GameObject player) => true;
 
-    public void Interact(GameObject player) => OnCraftMenuRequested?.Invoke();
+    public void Interact(GameObject player)
+    {
+        OnCraftMenuRequested?.Invoke();
+        EventBus.FireOpenCraftingMenu(this);
+    }
 
     // Bu ocakta bu tarif yapılabilir mi? (gerekli ocak seviyesi karşılanıyor mu)
     public bool CanCraft(RecipeData recipe)

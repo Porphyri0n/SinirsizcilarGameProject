@@ -7,8 +7,16 @@ using UnityEngine;
 // EventBus.FireUpgradeCompleted(targetName, newLevel) bitişte tetiklenir.
 public class UpgradeManager : MonoBehaviour
 {
+    public static UpgradeManager Instance { get; private set; }
+
     // El arabası yükseltmesi tamamlanınca ekstra OnWheelbarrowUpgraded için targetName eşleşmesi.
     public const string TARGET_WHEELBARROW = "Wheelbarrow";
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        Instance = this;
+    }
 
     public bool IsUpgrading { get; private set; }
     public IUpgradeable CurrentTarget { get; private set; }

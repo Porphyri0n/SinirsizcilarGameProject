@@ -13,16 +13,16 @@ public class TowerCameraRig : MonoBehaviour
     [SerializeField] private float transitionDuration = 0.4f;
 
     private Camera playerCamera;                            // Girişte yakalanan oyuncu kamerası
-    private Vector3 homeWorldPos;                           // Kuledeki oturmuş bakış pozu (dünya)
-    private Quaternion homeWorldRot;
+    private Vector3 homeLocalPos;                           // Kuledeki oturmuş bakış pozu (local)
+    private Quaternion homeLocalRot;
     private Coroutine routine;
 
     private void Awake()
     {
         if (towerCamera == null) return;
 
-        homeWorldPos = towerCamera.transform.position;
-        homeWorldRot = towerCamera.transform.rotation;
+        homeLocalPos = towerCamera.transform.localPosition;
+        homeLocalRot = towerCamera.transform.localRotation;
         towerCamera.enabled = false;
     }
 
@@ -40,7 +40,7 @@ public class TowerCameraRig : MonoBehaviour
         towerCamera.enabled = true;
         if (playerCamera != null) playerCamera.enabled = false;
 
-        StartTransition(homeWorldPos, homeWorldRot, false);
+        StartTransition(homeLocalPos, homeLocalRot, false);
     }
 
     // Oyuncu kuleden çıktı — kule bakışından oyuncu bakışına geri dön, sonra oyuncu kamerasını aç.
@@ -49,34 +49,53 @@ public class TowerCameraRig : MonoBehaviour
         if (towerCamera == null) return;
 
         if (playerCamera != null)
-            StartTransition(playerCamera.transform.position, playerCamera.transform.rotation, true);
+        {
+            // Oyuncu kamerasının dünya pozuna dönmeliyiz
+            StartTransition(playerCamera.transform.position, playerCamera.transform.rotation, true, true);
+        }
         else
             FinishExit();
     }
 
-    private void StartTransition(Vector3 targetPos, Quaternion targetRot, bool restorePlayerAtEnd)
+    private void StartTransition(Vector3 target, Quaternion rot, bool restorePlayerAtEnd, bool isWorld = false)
     {
         if (routine != null) StopCoroutine(routine);
-        routine = StartCoroutine(Transition(targetPos, targetRot, restorePlayerAtEnd));
+        routine = StartCoroutine(Transition(target, rot, restorePlayerAtEnd, isWorld));
     }
 
-    private IEnumerator Transition(Vector3 targetPos, Quaternion targetRot, bool restorePlayerAtEnd)
+    private IEnumerator Transition(Vector3 target, Quaternion targetRot, bool restorePlayerAtEnd, bool isWorld)
     {
-        Vector3 startPos = towerCamera.transform.position;
-        Quaternion startRot = towerCamera.transform.rotation;
+        Vector3 startPos = isWorld ? towerCamera.transform.position : towerCamera.transform.localPosition;
+        Quaternion startRot = isWorld ? towerCamera.transform.rotation : towerCamera.transform.localRotation;
 
         float t = 0f;
         while (transitionDuration > 0f && t < transitionDuration)
         {
             t += Time.deltaTime;
             float k = Mathf.SmoothStep(0f, 1f, t / transitionDuration);
-            towerCamera.transform.SetPositionAndRotation(
-                Vector3.Lerp(startPos, targetPos, k),
-                Quaternion.Slerp(startRot, targetRot, k));
+            
+            if (isWorld)
+            {
+                towerCamera.transform.SetPositionAndRotation(
+                    Vector3.Lerp(startPos, target, k),
+                    Quaternion.Slerp(startRot, targetRot, k));
+            }
+            else
+            {
+                towerCamera.transform.localPosition = Vector3.Lerp(startPos, target, k);
+                towerCamera.transform.localRotation = Quaternion.Slerp(startRot, targetRot, k);
+            }
             yield return null;
         }
 
-        towerCamera.transform.SetPositionAndRotation(targetPos, targetRot);
+        if (isWorld)
+            towerCamera.transform.SetPositionAndRotation(target, targetRot);
+        else
+        {
+            towerCamera.transform.localPosition = target;
+            towerCamera.transform.localRotation = targetRot;
+        }
+
         routine = null;
 
         if (restorePlayerAtEnd) FinishExit();
@@ -88,6 +107,7 @@ public class TowerCameraRig : MonoBehaviour
         if (playerCamera != null) playerCamera.enabled = true;
 
         // Sonraki giriş için kamerayı kule bakış pozuna geri koy
-        towerCamera.transform.SetPositionAndRotation(homeWorldPos, homeWorldRot);
+        towerCamera.transform.localPosition = homeLocalPos;
+        towerCamera.transform.localRotation = homeLocalRot;
     }
 }

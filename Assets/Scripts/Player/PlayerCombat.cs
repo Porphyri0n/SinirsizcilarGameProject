@@ -14,8 +14,20 @@ public class PlayerCombat : MonoBehaviour
 
     [SerializeField] private int playerID = -1;
 
+    [Header("Geri Bildirim (Juice)")]
+    [SerializeField] private float attackShakeMagnitude = 0.05f;
+    [SerializeField] private float attackShakeDuration = 0.1f;
+    [SerializeField] private float hitShakeMagnitude = 0.2f;
+    [SerializeField] private float hitShakeDuration = 0.15f;
+    [SerializeField] private float hitStopDuration = 0.05f;
+    [SerializeField] private float attackDashForce = 2.5f;   // Saldırı anında hafif ileri atılma
+    [SerializeField] private GameObject hitEffectPrefab;
+    [SerializeField] private AudioClip hitSound;
+    [SerializeField] private AudioSource sfxSource;
+
     private WeaponManager weapons;
     private PotionSystem potions;       // opsiyonel — Strength iksiri hasarı çarpar
+    private PlayerController controller; // İleri atılma için
     private float nextAttackTime;
     private bool isBlocking;
 
@@ -29,6 +41,8 @@ public class PlayerCombat : MonoBehaviour
     {
         weapons = GetComponent<WeaponManager>();
         potions = GetComponent<PotionSystem>();
+        controller = GetComponent<PlayerController>();
+        if (sfxSource == null) sfxSource = GetComponent<AudioSource>();
         if (attackOrigin == null) attackOrigin = transform;
     }
 
@@ -59,20 +73,68 @@ public class PlayerCombat : MonoBehaviour
         Vector3 origin = attackOrigin.position;
         Vector3 dir = attackOrigin.forward;
 
+        // Hafif bir saldırı sarsıntısı ve ileri atılma
+        if (CombatJuice.Instance != null)
+            CombatJuice.Instance.Shake(attackShakeDuration, attackShakeMagnitude);
+        
+        if (controller != null && attackDashForce > 0f)
+            controller.ApplyImpulse(dir * attackDashForce);
+
         // Önce SphereCast (kabaca önümüzde), ilk IDamageable'a hasar
         bool hitSomething = false;
-        if (Physics.SphereCast(origin, attackRadius, dir, out RaycastHit hit, attackRange, hitMask, QueryTriggerInteraction.Collide))
+        RaycastHit hit;
+        if (Physics.SphereCast(origin, attackRadius, dir, out hit, attackRange, hitMask, QueryTriggerInteraction.Collide))
         {
-            IDamageable target = hit.collider.GetComponentInParent<IDamageable>();
+            GameObject targetGO = hit.collider.gameObject;
+            IDamageable target = targetGO.GetComponentInParent<IDamageable>();
+            
             if (target != null && target.IsAlive)
             {
-                target.TakeDamage(damage, hit.point);
+                // Network Sync: Farklı birimler için uygun RPC'yi çağır
+                if (targetGO.TryGetComponent(out BanditNetSync banditNet) || targetGO.GetComponentInParent<BanditNetSync>())
+                {
+                    var bNet = banditNet ?? targetGO.GetComponentInParent<BanditNetSync>();
+                    bNet.RequestTakeDamageRpc(damage, hit.point);
+                }
+                else if (targetGO.TryGetComponent(out CombatNetSync playerNet) || targetGO.GetComponentInParent<CombatNetSync>())
+                {
+                    var pNet = playerNet ?? targetGO.GetComponentInParent<CombatNetSync>();
+                    pNet.RequestTakeDamage(damage, hit.point);
+                }
+                else
+                {
+                    // Yerel veya ağ dışı birim
+                    target.TakeDamage(damage, hit.point);
+                }
+
                 hitSomething = true;
+                
+                // Hit Juice
+                ApplyHitJuice(hit.point);
             }
         }
 
         Vector3 firePos = hitSomething ? hit.point : origin + dir * attackRange;
         EventBus.FirePlayerAttacked(playerID, damage, firePos);
+    }
+
+    private void ApplyHitJuice(Vector3 pos)
+    {
+        if (CombatJuice.Instance != null)
+        {
+            CombatJuice.Instance.Shake(hitShakeDuration, hitShakeMagnitude);
+            CombatJuice.Instance.HitStop(hitStopDuration);
+        }
+
+        if (hitEffectPrefab != null)
+        {
+            Instantiate(hitEffectPrefab, pos, Quaternion.identity);
+        }
+
+        if (sfxSource != null && hitSound != null)
+        {
+            sfxSource.PlayOneShot(hitSound);
+        }
     }
 
     private void HandleBlockInput()

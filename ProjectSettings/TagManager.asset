@@ -12,20 +12,22 @@ TagManager:
   - Caravan
   - Bandit
   - TradeRoad
+  - Door
+  - Item
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Player
   - Water
   - UI
   - Ground
   - Water
   - WallTop
-  - 
-  - 
-  - 
-  - 
+  - NotNavMesh
+  - Terrain
+  - Interactable
+  - Enemy
   - 
   - 
   - 

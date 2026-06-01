@@ -15,7 +15,8 @@ GameObject:
   - component: {fileID: 5328367055538389018}
   - component: {fileID: 3311098280986649231}
   - component: {fileID: 3385566958430184611}
-  m_Layer: 0
+  - component: {fileID: 6065205049981205986}
+  m_Layer: 12
   m_Name: Bandit_Brute
   m_TagString: Bandit
   m_Icon: {fileID: 0}
@@ -50,14 +51,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3243267671
-  InScenePlacedSourceGlobalObjectIdHash: 0
+  GlobalObjectIdHash: 948143005
+  InScenePlacedSourceGlobalObjectIdHash: 948143005
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
+  SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
@@ -77,6 +78,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   data: {fileID: 11400000, guid: da8111a6c04118741b67fc8220e42cef, type: 2}
   health: {fileID: 4951832949226066054}
+  agent: {fileID: 6065205049981205986}
   attackRange: 1.8
   playerAggroRange: 8
   retargetInterval: 1
@@ -162,6 +164,28 @@ CapsuleCollider:
   m_Height: 1.8
   m_Direction: 1
   m_Center: {x: 0, y: 0.9, z: 0}
+--- !u!195 &6065205049981205986
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4160322940534683802}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 1.5
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 0
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
 --- !u!1001 &2324019901120914797
 PrefabInstance:
   m_ObjectHideFlags: 0

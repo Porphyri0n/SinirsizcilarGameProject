@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi:schemaLocation="UnityEngine.UIElements ../../UIElementsSchema/UnityEngine.UIElements.xsd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ui:VisualElement class="player-entry">
+        <ui:Label name="playerName" text="Player Name - NOT READY" class="player-entry-text" />
+    </ui:VisualElement>
+</ui:UXML>

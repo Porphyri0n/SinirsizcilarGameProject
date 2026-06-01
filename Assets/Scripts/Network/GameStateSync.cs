@@ -11,6 +11,7 @@ public class GameStateSync : NetworkBehaviour
     private readonly NetworkVariable<int> roomPhase = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<int> roomWave = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<float> castleHP = new NetworkVariable<float>(GameConstants.CASTLE_MAX_HP, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    public readonly NetworkVariable<bool> GameStarted = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private void Awake()
     {
@@ -20,7 +21,14 @@ public class GameStateSync : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        if (!IsServer)
+        if (IsServer)
+        {
+            if (GameNetworkManager.Instance != null)
+            {
+                GameStarted.Value = GameNetworkManager.Instance.GameStarted;
+            }
+        }
+        else
         {
             // Apply initial state for late joiners
             EventBus.FirePhaseChanged((GamePhase)roomPhase.Value);

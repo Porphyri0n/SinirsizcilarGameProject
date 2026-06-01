@@ -11,7 +11,7 @@ public class LobbyManager : NetworkBehaviour
 {
     public static LobbyManager Instance { get; private set; }
 
-    [SerializeField] private string gameSceneName = "Game";
+    [SerializeField] private string gameSceneName = "GameScene";
 
     public event Action OnJoinedRoomEvent;
     public event Action OnLobbyChanged;
@@ -46,8 +46,12 @@ public class LobbyManager : NetworkBehaviour
             currentSessionId = currentSession.Id;
 
             Debug.Log($"[LobbyManager] Created session '{roomName}' with Join Code: {currentSession.Code}");
+            
+            // Start Netcode as Host
+            NetworkManager.Singleton.StartHost();
+            
             OnJoinedRoomEvent?.Invoke();
-            OnLobbyChanged?.Invoke();
+OnLobbyChanged?.Invoke();
         }
         catch (Exception e)
         {
@@ -79,8 +83,12 @@ public class LobbyManager : NetworkBehaviour
                 currentSessionId = currentSession.Id;
                 
                 Debug.Log($"[LobbyManager] Joined session '{roomName}' with ID: {currentSessionId}");
+                
+                // Start Netcode as Client
+                NetworkManager.Singleton.StartClient();
+                
                 OnJoinedRoomEvent?.Invoke();
-                OnLobbyChanged?.Invoke();
+OnLobbyChanged?.Invoke();
             }
             else
             {
@@ -107,8 +115,12 @@ public class LobbyManager : NetworkBehaviour
                 currentSessionId = currentSession.Id;
                 
                 Debug.Log($"[LobbyManager] Quick joined session with ID: {currentSessionId}");
+                
+                // Start Netcode as Client
+                NetworkManager.Singleton.StartClient();
+                
                 OnJoinedRoomEvent?.Invoke();
-                OnLobbyChanged?.Invoke();
+OnLobbyChanged?.Invoke();
             }
             else
             {
@@ -145,9 +157,13 @@ public class LobbyManager : NetworkBehaviour
 
     public void SetReady(bool ready)
     {
-        if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsClient)
+        if (IsSpawned && IsClient)
         {
             SetReadyServerRpc(Unity.Netcode.NetworkManager.Singleton.LocalClientId, ready);
+        }
+        else
+        {
+            Debug.LogWarning("[LobbyManager] Cannot set ready: Network object not spawned or not a client.");
         }
     }
 
@@ -195,8 +211,31 @@ public class LobbyManager : NetworkBehaviour
     {
         if (!IsServer || !AllPlayersReady()) return;
 
+        // Tüm clientlara oyunun başladığını haber ver (Lobby UI'larını kapatsınlar)
+        SetGameStartedClientRpc();
+
+        if (GameNetworkManager.Instance != null)
+        {
+            GameNetworkManager.Instance.GameStarted = true;
+        }
+
+        // Senkronizasyon için GameStateSync üzerindeki NetworkVariable'ı güncelle
+        if (GameStateSync.Instance != null)
+        {
+            GameStateSync.Instance.GameStarted.Value = true;
+        }
+
         CloseSession();
         Unity.Netcode.NetworkManager.Singleton.SceneManager.LoadScene(gameSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+    }
+
+    [ClientRpc]
+    private void SetGameStartedClientRpc()
+    {
+        if (GameNetworkManager.Instance != null)
+        {
+            GameNetworkManager.Instance.GameStarted = true;
+        }
     }
 
     private async void CloseSession()

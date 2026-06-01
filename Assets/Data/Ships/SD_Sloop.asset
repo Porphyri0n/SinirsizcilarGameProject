@@ -15,7 +15,7 @@ MonoBehaviour:
   shipType: 0
   displayName: Sloop (Hafif Gemi)
   maxHealth: 100
-  moveSpeed: 5
+  moveSpeed: 12
   attackDamage: 10
   attackInterval: 3
-  prefab: {fileID: 0}
+  prefab: {fileID: 1176792311662779593, guid: 10ddb11f30a39624f8110e46cc913907, type: 3}

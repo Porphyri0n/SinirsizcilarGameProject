@@ -15,7 +15,7 @@ MonoBehaviour:
   shipType: 1
   displayName: Brigantine (Orta Gemi)
   maxHealth: 250
-  moveSpeed: 3.5
+  moveSpeed: 10
   attackDamage: 22
   attackInterval: 2.5
-  prefab: {fileID: 0}
+  prefab: {fileID: 1493183722337576101, guid: a9b53e01b370d5b4f85669aa753bbc97, type: 3}

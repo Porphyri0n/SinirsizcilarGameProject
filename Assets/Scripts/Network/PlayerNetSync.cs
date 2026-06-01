@@ -71,12 +71,77 @@ public class PlayerNetSync : NetworkBehaviour
             AudioListener listener = GetComponentInChildren<AudioListener>();
             if (listener != null) listener.enabled = false;
         }
+        else
+        {
+            // Owner: Oyun henüz başlamadıysa kontrolleri geçici olarak kapat
+            bool gameStarted = false;
+            if (GameStateSync.Instance != null && GameStateSync.Instance.IsSpawned)
+            {
+                gameStarted = GameStateSync.Instance.GameStarted.Value;
+            }
+            else if (GameNetworkManager.Instance != null)
+            {
+                gameStarted = GameNetworkManager.Instance.GameStarted;
+            }
+            else
+            {
+                gameStarted = true;
+            }
+
+            if (!gameStarted)
+            {
+                SetLocalControlsEnabled(false);
+                if (GameStateSync.Instance != null)
+                {
+                    GameStateSync.Instance.GameStarted.OnValueChanged += HandleGameStartedChanged;
+                    
+                    // NGO 1.x OnValueChanged başlangıç değeri için tetiklenmeyebilir, 
+                    // bu yüzden abonelikten hemen sonra tekrar kontrol ediyoruz.
+                    if (GameStateSync.Instance.GameStarted.Value)
+                    {
+                        HandleGameStartedChanged(false, true);
+                    }
+                }
+            }
+            else
+            {
+                SetLocalControlsEnabled(true);
+            }
+}
     }
 
     public override void OnNetworkDespawn()
     {
         netPos.OnValueChanged -= OnPositionChanged;
         netCarry.OnValueChanged -= OnCarryChanged;
+
+        if (IsOwner && GameStateSync.Instance != null)
+        {
+            GameStateSync.Instance.GameStarted.OnValueChanged -= HandleGameStartedChanged;
+        }
+    }
+
+    private void HandleGameStartedChanged(bool oldVal, bool newVal)
+    {
+        if (newVal)
+        {
+            SetLocalControlsEnabled(true);
+            if (GameStateSync.Instance != null)
+            {
+                GameStateSync.Instance.GameStarted.OnValueChanged -= HandleGameStartedChanged;
+            }
+        }
+    }
+
+    private void SetLocalControlsEnabled(bool enabled)
+    {
+        if (playerController != null) playerController.enabled = enabled;
+
+        PlayerCombat combat = GetComponent<PlayerCombat>();
+        if (combat != null) combat.enabled = enabled;
+
+        PlayerInteraction interaction = GetComponent<PlayerInteraction>();
+        if (interaction != null) interaction.enabled = enabled;
     }
 
     private void Update()

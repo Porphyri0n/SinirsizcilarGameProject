@@ -53,6 +53,13 @@ public static class EventBus
     public static event Action OnCastleDestroyed;
     public static void FireCastleDestroyed() => OnCastleDestroyed?.Invoke();
 
+    // ── WALLS ────────────────────────────────────────────────────────────
+    public static event Action<float, float> OnWallsDamaged;
+    public static event Action<int, float, float> OnWallHealthChanged;
+
+    public static void FireWallsDamaged(float current, float max) => OnWallsDamaged?.Invoke(current, max);
+    public static void FireWallHealthChanged(int index, float current, float max) => OnWallHealthChanged?.Invoke(index, current, max);
+
     // ── RESOURCES ───────────────────────────────────────────────────────
     public static event Action<ResourceType, int> OnResourceReceived;      // kervandan teslim alındı
     public static void FireResourceReceived(ResourceType t, int a) => OnResourceReceived?.Invoke(t, a);
@@ -125,6 +132,13 @@ public static class EventBus
     // Tüm sistemler bunu dinleyip kendi state'ini sıfırlar.
     public static event Action OnGameRestart;
     public static void FireGameRestart() => OnGameRestart?.Invoke();
+
+    // ── UI ──────────────────────────────────────────────────────────────
+    public static event Action<CraftingStation> OnOpenCraftingMenu;
+    public static void FireOpenCraftingMenu(CraftingStation s) => OnOpenCraftingMenu?.Invoke(s);
+
+    public static event Action<IUpgradeable, string> OnOpenUpgradeMenu;
+    public static void FireOpenUpgradeMenu(IUpgradeable u, string t) => OnOpenUpgradeMenu?.Invoke(u, t);
 
     // ── CLEANUP ─────────────────────────────────────────────────────────
     public static void ClearAll()

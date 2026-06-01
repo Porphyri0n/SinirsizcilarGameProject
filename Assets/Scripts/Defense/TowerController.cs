@@ -23,8 +23,14 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     [Header("Etkileşim")]
     [SerializeField] private string enterPrompt = "[E] Kuleye Gir";
 
+    [Header("Görsel & Ses")]
+    [SerializeField] private GameObject muzzleFlashPrefab;
+    [SerializeField] private AudioClip fireSound;
+    [SerializeField] private float fireShakeMagnitude = 0.25f;
+    [SerializeField] private float fireShakeDuration = 0.15f;
+
     private GameObject operatorPlayer;
-    private int operatorPlayerID = -1;
+private int operatorPlayerID = -1;
     private int enterFrame = -1;
     private float lastFireTime = -999f;
 
@@ -103,7 +109,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     {
         if (!IsOccupied || Time.frameCount == enterFrame) return;
 
-        if (Input.GetKeyDown(GameConstants.INTERACT_KEY) || Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.Q))
         {
             Exit(operatorPlayer);
             return;
@@ -123,10 +129,29 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         Transform origin = muzzle != null ? muzzle : (aimPivot != null ? aimPivot : transform);
         Vector3 dir = origin.forward;
 
+        // Mermi
         GameObject obj = Instantiate(projectilePrefab, origin.position, Quaternion.LookRotation(dir));
         Projectile projectile = obj.GetComponent<Projectile>();
         if (projectile != null)
             projectile.Launch(dir, projectileSpeed, Damage, SplashRadius, ProjectileUsesGravity, gameObject);
+
+        // Feedback: VFX
+        if (muzzleFlashPrefab != null)
+        {
+            Instantiate(muzzleFlashPrefab, origin.position, origin.rotation, origin);
+        }
+
+        // Feedback: SFX
+        if (fireSound != null)
+        {
+            AudioSource.PlayClipAtPoint(fireSound, origin.position);
+        }
+
+        // Feedback: Shake
+        if (CameraShake.Instance != null && IsOccupied)
+        {
+            CameraShake.Instance.Shake(fireShakeDuration, fireShakeMagnitude);
+        }
 
         EventBus.FireTowerFired(DefenseType, origin.position + dir * Range);
     }
