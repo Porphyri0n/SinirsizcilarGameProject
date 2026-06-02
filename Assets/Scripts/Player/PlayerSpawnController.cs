@@ -54,51 +54,123 @@ public class PlayerSpawnController : NetworkBehaviour
         GetComponent<WeaponManager>()?.SetPlayerID(id);
         GetComponent<PotionSystem>()?.SetPlayerID(id);
 
-        // Sahibi olduğumuz (kendi) karakterimizi spawn noktasına yerleştiriyoruz.
-        // Client-authoritative (Owner write) sistemlerde her oyuncu kendini ışınlamalıdır.
+        // SUNUCU TARAFINDA: Tüm karakterleri spawn noktasına yerleştiriyoruz.
+        // Bu sayede NetworkTransform üzerinden tüm client'lara doğru pozisyon senkronize edilir.
+        if (IsServer)
+        {
+            MoveToSpawnPoint();
+        }
+
+        // SAHİBİ OLDUĞUMUZ (KENDİ) KARAKTERİMİZ İÇİN:
         if (IsOwner)
         {
-            if (spawnPoint == null)
+            // Eğer sunucu değilsek (client isek), yerel olarak da bir kez taşıyalım (tahminleme/akıcılık için)
+            if (!IsServer)
             {
-                GameObject sp = GameObject.Find("PlayerSpawnPoint");
-                if (sp != null) spawnPoint = sp.transform;
-            }
-
-            if (spawnPoint != null)
-            {
-                Vector3 pos = spawnPoint.position;
-                // OwnerClientId'ye göre oyuncuları hafif kaydırarak iç içe geçmelerini önle.
-                pos += new Vector3((OwnerClientId % 3) * 1.5f, 0, (OwnerClientId / 3) * 1.5f);
-                
-                TeleportTo(pos, spawnPoint.rotation);
+                MoveToSpawnPoint();
             }
 
             if (playerHealth != null) playerHealth.ResetHealth();
         }
         
-        // Oyun başlama durumunu kontrol et.
-        bool gameStarted = false;
-        if (GameStateSync.Instance != null && GameStateSync.Instance.IsSpawned)
+        // Oyun başlama durumunu kontrol et ve takip et.
+        // GameStateSync'in henüz spawn olmamış olma ihtimaline karşı Coroutine ile bekliyoruz.
+        StartCoroutine(InitializeControlState());
+    }
+
+    private System.Collections.IEnumerator InitializeControlState()
+    {
+        // GameStateSync'in hazır olmasını bekle (özellikle client'larda sahne geçişinde gecikebilir)
+        int retryCount = 0;
+        while (GameStateSync.Instance == null && retryCount < 100)
         {
-            gameStarted = GameStateSync.Instance.GameStarted.Value;
+            retryCount++;
+            yield return null;
+        }
+
+        if (GameStateSync.Instance != null)
+        {
+            GameStateSync.Instance.GameStarted.OnValueChanged += OnGameStartedChanged;
+            RefreshControlState(GameStateSync.Instance.GameStarted.Value);
         }
         else if (GameNetworkManager.Instance != null)
         {
-            gameStarted = GameNetworkManager.Instance.GameStarted;
+            RefreshControlState(GameNetworkManager.Instance.GameStarted);
         }
         else
         {
-            // Eğer hiçbir sistem bulunamadıysa (örn. test sahneleri), kontrolü açık bırak.
-            gameStarted = true;
+            // Hiçbir sistem bulunamazsa varsayılan olarak kontrolleri açalım
+            RefreshControlState(true);
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        if (GameStateSync.Instance != null)
+        {
+            GameStateSync.Instance.GameStarted.OnValueChanged -= OnGameStartedChanged;
+        }
+    }
+
+    private void OnGameStartedChanged(bool oldVal, bool newVal)
+    {
+        RefreshControlState(newVal);
+    }
+
+    private void RefreshControlState(bool gameStarted)
+    {
+        bool shouldEnable = gameStarted;
+
+        // Kendi karakterimizse ve oyun sahnesindeysek kontrolleri açık tutuyoruz.
+        // Bu sayede GameStateSync gecikse bile yerçekimi ve temel hareket çalışır.
+        if (IsOwner && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("GameScene"))
+        {
+            shouldEnable = true;
         }
 
-        if (gameStarted)
+        if (shouldEnable)
         {
             SetControlEnabled(true);
         }
         else
         {
+            // Lobi vb. durumlarda kontroller kapalı başlar
             SetControlEnabled(false);
+        }
+    }
+
+    private void MoveToSpawnPoint()
+    {
+        Transform targetPoint = spawnPoint;
+
+        if (targetPoint == null)
+        {
+            // "PlayerSpawnPoints" (plural) objesini ve çocuklarını kontrol et
+            GameObject spGroup = GameObject.Find("PlayerSpawnPoints");
+            if (spGroup != null && spGroup.transform.childCount > 0)
+            {
+                // OwnerClientId'ye göre 6 noktadan birini seç (veya kaç nokta varsa)
+                int index = (int)(OwnerClientId % (ulong)spGroup.transform.childCount);
+                targetPoint = spGroup.transform.GetChild(index);
+            }
+            else
+            {
+                // Eskisi gibi tekli "PlayerSpawnPoint" ara
+                GameObject sp = GameObject.Find("PlayerSpawnPoint");
+                if (sp != null) targetPoint = sp.transform;
+            }
+        }
+
+        if (targetPoint != null)
+        {
+            TeleportTo(targetPoint.position, targetPoint.rotation);
+        }
+        else
+        {
+            // Eğer hiç nokta bulunamazsa, iç içe geçmemek için ufak bir kaydırma yap (0,0,0 olmasın diye)
+            Vector3 fallbackPos = transform.position;
+            fallbackPos += new Vector3((OwnerClientId % 3) * 1.5f, 0, (OwnerClientId / 3) * 1.5f);
+            TeleportTo(fallbackPos, transform.rotation);
         }
     }
 
@@ -115,24 +187,32 @@ public class PlayerSpawnController : NetworkBehaviour
         // Işınlanma: Başlangıç spawn noktasına geri dön.
         if (IsOwner)
         {
-            if (spawnPoint == null)
-            {
-                GameObject sp = GameObject.Find("PlayerSpawnPoint");
-                if (sp != null) spawnPoint = sp.transform;
-            }
-
-            if (spawnPoint != null)
-            {
-                Vector3 pos = spawnPoint.position;
-                // OwnerClientId'ye göre oyuncuları hafif kaydırarak iç içe geçmelerini önle.
-                pos += new Vector3((OwnerClientId % 3) * 1.5f, 0, (OwnerClientId / 3) * 1.5f);
-                
-                TeleportTo(pos, spawnPoint.rotation);
-            }
+            MoveToSpawnPoint();
         }
 
-        if (IsServer && playerHealth != null) playerHealth.ResetHealth();   // can full
+        // Sunucu zaten ResetHealth() yapmış olmalı (RPC üzerinden), ancak güvenlik için burada da durabilir.
+        if (IsServer && playerHealth != null) playerHealth.ResetHealth();   
         SetControlEnabled(true);                                // kontrol geri ver
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestReviveServerRpc()
+    {
+        if (!IsServer) return;
+        
+        if (playerHealth != null && !playerHealth.IsAlive)
+        {
+            Debug.Log($"[Server] Reviving player {playerID}");
+            playerHealth.ResetHealth();
+            NotifyRevivedClientRpc(playerID);
+        }
+    }
+
+    [ClientRpc]
+    private void NotifyRevivedClientRpc(int pid)
+    {
+        Debug.Log($"[Client] Received revive notification for player {pid}");
+        EventBus.FirePlayerRevived(pid);
     }
 
     // Hareket/savaş/etkileşim scriptlerini topluca aç/kapat

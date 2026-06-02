@@ -114,6 +114,75 @@ Transform:
   m_Children: []
   m_Father: {fileID: 364381687843943443}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2593674275748766111
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3569897703530739965}
+  - component: {fileID: 4643037075747859989}
+  - component: {fileID: 4404191644544740089}
+  m_Layer: 0
+  m_Name: InteractPromptUITK
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3569897703530739965
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2593674275748766111}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 2, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6431431852563190589}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4643037075747859989
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2593674275748766111}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_PanelSettings: {fileID: 11400000, guid: b74da3fa7af83db4b961f885c01bcd60, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 0fa0840d9ea7bf643b3aef5952fb6e8c, type: 3}
+  m_SortingOrder: 0
+  m_WorldSpaceSizeMode: 0
+  m_WorldSpaceWidth: 1920
+  m_WorldSpaceHeight: 1080
+--- !u!114 &4404191644544740089
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2593674275748766111}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b1c2aa8890a6894ab6666b2237b9838, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  verticalOffset: 1.5
+  occlusionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  eyeHeight: 1.6
 --- !u!1 &2733139825492121832
 GameObject:
   m_ObjectHideFlags: 0
@@ -218,6 +287,7 @@ Transform:
   - {fileID: 8067531329786762867}
   - {fileID: 364381687843943443}
   - {fileID: 2870068197820152235}
+  - {fileID: 3569897703530739965}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7507486662144855053
@@ -232,7 +302,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 2278465314
+  GlobalObjectIdHash: 1722996865
   InScenePlacedSourceGlobalObjectIdHash: 1722996865
   DeferredDespawnTick: 0
   Ownership: 1
@@ -257,6 +327,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1548fbf3a2e7d8d4794919e3e4fdd362, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   data: {fileID: 11400000, guid: 1c209545912ac3e45aec660522e4209b, type: 2}
   aimPivot: {fileID: 364381687843943443}
   cameraRig: {fileID: 987558195714714960}
@@ -264,7 +335,7 @@ MonoBehaviour:
   projectilePrefab: {fileID: 5909352526222599093, guid: 4be6540669e0a7a4ca3bd095ea36b19c, type: 3}
   muzzle: {fileID: 1189650846190349849}
   projectileSpeed: 25
-  enterPrompt: '[E] Kuleye Gir'
+  enterPrompt: E ile kullan
   muzzleFlashPrefab: {fileID: 0}
   fireSound: {fileID: 0}
   fireShakeMagnitude: 0.25

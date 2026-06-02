@@ -113,7 +113,19 @@ public class SelaSystem : MonoBehaviour
         activeReaders.Remove(readerPid);
         selaProgress.Remove(deadPid);
         corpses.Remove(deadPid);
-        EventBus.FirePlayerRevived(deadPid);
+
+        // Find the dead player's SpawnController and request revive via server
+        var players = GameObject.FindObjectsByType<PlayerSpawnController>(FindObjectsSortMode.None);
+        foreach (var p in players)
+        {
+            // OwnerClientId is ulong, deadPid is int
+            if ((int)p.OwnerClientId == deadPid)
+            {
+                Debug.Log($"[SelaSystem] Requesting revival for player {deadPid} via ServerRpc");
+                p.RequestReviveServerRpc();
+                break;
+            }
+        }
     }
 }
 

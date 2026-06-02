@@ -30,8 +30,23 @@ public class WallRepair : MonoBehaviour, IInteractable
         if (wall == null || !wall.NeedsRepair || !HasResources())
             return;
 
-        SpendResources();
-        wall.Repair(wall.MaxHealth);   // Tam tamir; Wall görseli kendi içinde güncellenir
+        if (Unity.Netcode.NetworkManager.Singleton.IsServer)
+        {
+            SpendResources();
+            wall.Repair(wall.MaxHealth);   // Tam tamir; Wall görseli kendi içinde güncellenir
+        }
+        else
+        {
+            // Request server to repair
+            if (CastleWalls.Instance != null && GameStateSync.Instance != null)
+            {
+                int index = CastleWalls.Instance.GetWallIndex(wall);
+                if (index != -1)
+                {
+                    GameStateSync.Instance.RequestRepairWallServerRpc(index);
+                }
+            }
+        }
     }
 
     private bool HasResources()
