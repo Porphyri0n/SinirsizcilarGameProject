@@ -1,8 +1,9 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Önümüzdeki en yakın IInteractable'ı bulur, E'ye basınca Interact çağırır.
-public class PlayerInteraction : MonoBehaviour
+public class PlayerInteraction : NetworkBehaviour
 {
     [SerializeField] private Transform aimOrigin;
     [SerializeField] private LayerMask interactMask = ~0;
@@ -17,6 +18,8 @@ public class PlayerInteraction : MonoBehaviour
 
     private void Update()
     {
+        if (!IsOwner) return;
+
         current = FindInteractable();
 
         // UI açıkken veya mouse serbestken etkileşimi engelle (örn. menü kapatırken E'ye basınca geri açılmasın)

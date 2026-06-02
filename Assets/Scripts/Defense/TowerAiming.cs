@@ -51,6 +51,8 @@ public class TowerAiming : MonoBehaviour
             return;
         }
 
+        if (!tower.IsLocalOperator()) return;
+
         if (!wasOccupied)
         {
             // Giriş yapıldığında mevcut rotasyonu yakala

@@ -1,10 +1,11 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Sol tık: kılıçla saldırı. Sağ tık basılı: kalkanla blok.
 // Silah yokken hiçbir şey yapamaz. Saldırı ATTACK_COOLDOWN ile sınırlı.
 [RequireComponent(typeof(WeaponManager))]
-public class PlayerCombat : MonoBehaviour
+public class PlayerCombat : NetworkBehaviour
 {
     [Header("Saldırı")]
     [SerializeField] private Transform attackOrigin;
@@ -48,6 +49,8 @@ public class PlayerCombat : MonoBehaviour
 
     private void Update()
     {
+        if (!IsOwner) return;
+
         HandleBlockInput();
         HandleAttackInput();
     }
@@ -95,6 +98,16 @@ public class PlayerCombat : MonoBehaviour
                 {
                     var bNet = banditNet ?? targetGO.GetComponentInParent<BanditNetSync>();
                     bNet.RequestTakeDamageRpc(damage, hit.point);
+                }
+                else if (targetGO.TryGetComponent(out ShipHealth shipHealth) || targetGO.GetComponentInParent<ShipHealth>())
+                {
+                    var sHealth = shipHealth ?? targetGO.GetComponentInParent<ShipHealth>();
+                    sHealth.RequestTakeDamageRpc(damage, hit.point);
+                }
+                else if (targetGO.TryGetComponent(out CaravanController caravan) || targetGO.GetComponentInParent<CaravanController>())
+                {
+                    var cCtrl = caravan ?? targetGO.GetComponentInParent<CaravanController>();
+                    cCtrl.RequestTakeDamageRpc(damage, hit.point);
                 }
                 else if (targetGO.TryGetComponent(out CombatNetSync playerNet) || targetGO.GetComponentInParent<CombatNetSync>())
                 {

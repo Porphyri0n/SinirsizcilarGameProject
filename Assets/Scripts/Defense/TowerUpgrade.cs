@@ -48,9 +48,15 @@ public class TowerUpgrade : MonoBehaviour, IUpgradeable
         UpgradeData next = GetNextUpgrade();
         if (next == null) return;
 
-        level = next.toLevel;
-        OnUpgraded?.Invoke(level);
+        SetLevel(next.toLevel);
         EventBus.FireUpgradeCompleted(upgradeTargetName, level);
+    }
+
+    // Network senkronu için yan etkisiz (EventBus tetiklemeyen) seviye güncellemesi
+    public void SetLevel(UpgradeLevel newLevel)
+    {
+        level = newLevel;
+        OnUpgraded?.Invoke(level);
     }
 
     private float MultiplierFor(float[] arr)

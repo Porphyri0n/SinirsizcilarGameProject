@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 /// <summary>
 /// CharacterController bazlı 3rd person oyuncu hareketi.
@@ -7,7 +8,7 @@ using UnityEngine;
 /// Hız sabitleri GameConstants'tan gelir; CarrySystem gibi sistemler hızı çarpanla düşürebilir.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
-public class PlayerController : MonoBehaviour
+public class PlayerController : NetworkBehaviour
 {
     [Header("Hareket")]
     [SerializeField] private float moveSpeed = GameConstants.PLAYER_BASE_SPEED;
@@ -92,8 +93,60 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
 
     private bool wasGameStarted;
 
+    [Header("Ladder")]
+    [SerializeField] private float climbingSpeed = 4f;
+    private bool isClimbing = false;
+    private bool isAtLadder = false;
+    private Ladder currentLadder;
+
+    public bool IsClimbing => isClimbing;
+
+    public void SetAtLadder(bool atLadder, Ladder ladder)
+    {
+        isAtLadder = atLadder;
+        if (atLadder)
+        {
+            currentLadder = ladder;
+        }
+        else
+        {
+            if (isClimbing) StopClimbing();
+            currentLadder = null;
+        }
+    }
+
+    public void StartClimbing()
+    {
+        if (isClimbing || currentLadder == null) return;
+        isClimbing = true;
+        verticalVelocity = Vector3.zero;
+        currentSpeed = 0f;
+        smoothedMoveDir = Vector3.zero;
+
+        // Karakteri merdivene hizala
+        Vector3 ladderPos = currentLadder.transform.position;
+        Vector3 playerPos = transform.position;
+        
+        // Merdivenin önüne hizala (biraz mesafe bırakarak)
+        Vector3 offset = currentLadder.transform.forward * 0.3f; 
+        Vector3 targetPos = new Vector3(ladderPos.x, playerPos.y, ladderPos.z) + offset;
+        
+        transform.position = targetPos;
+        
+        // Merdivene bak
+        if (offset != Vector3.zero)
+            transform.rotation = Quaternion.LookRotation(-currentLadder.transform.forward);
+    }
+
+    public void StopClimbing()
+    {
+        isClimbing = false;
+    }
+
     private void Update()
     {
+        if (!IsOwner) return;
+
         // UI üzerindeysek girişleri atla
         bool isUIActive = UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
         
@@ -133,22 +186,78 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
             Cursor.visible = true;
         }
 
-        // Yerçekimi her zaman uygulanmalı (oyun başladıysa), böylece karakter havada asılı kalmaz.
         if (gameStarted)
         {
-            HandleGravityAndJump();
-            HandleImpulse();
-            
-            // Hareket sadece cursor kilitliyken
-            if (Cursor.lockState == CursorLockMode.Locked)
+            if (isClimbing)
             {
-                HandleMovement();
+                HandleClimbing();
             }
             else
             {
-                IsMoving = false;
-                currentSpeed = 0f;
+                HandleGravityAndJump();
+                HandleImpulse();
+                
+                // Hareket sadece cursor kilitliyken
+                if (Cursor.lockState == CursorLockMode.Locked)
+                {
+                    HandleMovement();
+                    
+                    // Merdiven basindaysak ve W'ya basiliyorsa tirmanmaya basla
+                    if (isAtLadder && Input.GetAxisRaw("Vertical") > 0.1f)
+                    {
+                        StartClimbing();
+                    }
+                }
+                else
+                {
+                    IsMoving = false;
+                    currentSpeed = 0f;
+                }
             }
+        }
+    }
+
+    private void HandleClimbing()
+    {
+        float v = Input.GetAxisRaw("Vertical");
+        float h = Input.GetAxisRaw("Horizontal");
+
+        Vector3 moveDirection = Vector3.up * v;
+
+        // Merdiven tepesine yaklaştıysak ve yukarı basıyorsak ileri de it (ledge climb/walk-off hissi için)
+        if (currentLadder != null && v > 0.1f)
+        {
+            Collider ladderCol = currentLadder.GetComponent<Collider>();
+            if (ladderCol != null)
+            {
+                // Karakterin üst kısmı (yaklaşık kafa/göğüs hizası) merdiven collider'ını geçtiyse
+                float playerUpperPart = transform.position.y + 1.2f; 
+                float ladderTop = ladderCol.bounds.max.y;
+
+                if (playerUpperPart > ladderTop)
+                {
+                    // Oyuncunun baktığı yöne (merdivene/platforma doğru) hareket ekle
+                    moveDirection += transform.forward * 0.8f;
+                }
+            }
+        }
+        
+        controller.Move(moveDirection * climbingSpeed * Time.deltaTime);
+
+        IsMoving = moveDirection.sqrMagnitude > 0.001f;
+
+        // Ziplama ile merdivenden ayrilma
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            StopClimbing();
+            verticalVelocity.y = jumpForce * 0.7f; // Hafif bir sicrama
+            return;
+        }
+
+        // Yere ulastiginda ve asagi basiyorsa birak
+        if (controller.isGrounded && v < -0.1f)
+        {
+            StopClimbing();
         }
     }
 
@@ -168,6 +277,8 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
 
     private void LateUpdate()
     {
+        if (!IsOwner) return;
+
         if (cameraTransform == null) return;
 
         // İmleç kilitliyken mouse hareketleriyle kamerayı döndür

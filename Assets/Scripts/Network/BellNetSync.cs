@@ -27,27 +27,29 @@ public class BellNetSync : NetworkBehaviour
 
     private void HandleBellRung(BellSignal signal)
     {
-        // Eğer bu çanı biz tetiklediysek (veya server'sak) diğerlerine bildir
-        // Not: BellSystem.RingBell her çağrıldığında bu event tetiklenir.
-        // Sonsuz döngü olmaması için RPC'den gelen çağrılarda tekrar RPC göndermemeliyiz.
-        if (IsOwner || IsServer)
+        // Sonsuz döngü ve yetki hatasını önlemek için:
+        // Sadece yerel etkileşim ise Server'dan dağıtım talep et.
+        if (Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsClient)
         {
-            // Bu basitleştirilmiş bir yaklaşım. Proje mimarisine göre 
-            // sadece etkileşimi yapan client'ın RPC göndermesi beklenir.
-            if (NetworkManager.Singleton.IsClient && !IsProxy())
-            {
-                RPC_NotifyBellRungRpc((int)signal);
-            }
+            // Eğer biz çaldıysak (isProxy değilsek)
+            if (!IsProxy())
+                RequestRingBellServerRpc((int)signal);
         }
     }
 
-    [Rpc(SendTo.NotOwner)]
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestRingBellServerRpc(int signalInt)
+    {
+        // Server tüm client'lara (NotOwner = tüm client'lar, çünkü server owner'dır) dağıtır.
+        RPC_NotifyBellRungRpc(signalInt);
+    }
+
+    [Rpc(SendTo.NotOwner, Delivery = RpcDelivery.Unreliable)]
     private void RPC_NotifyBellRungRpc(int signalInt)
     {
         if (bell != null)
         {
             // Remote client'larda sadece görsel/işitsel çalma işlemini yap
-            // RingBell içindeki EventBus.FireBellRung yerel UI'ları tetikleyecektir.
             bell.RingBell((BellSignal)signalInt);
         }
     }

@@ -73,6 +73,16 @@
                 <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
                     <ui:VisualElement name="wall2HpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" style="background-color: #7d7d7d;" />
                 </ui:VisualElement>
+
+                <ui:Label text="SUR 3 CANI" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="wall3HpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" style="background-color: #7d7d7d;" />
+                </ui:VisualElement>
+
+                <ui:Label text="SUR 4 CANI" class="label stat-label" picking-mode="Ignore" />
+                <ui:VisualElement class="progress-bar-container" picking-mode="Ignore">
+                    <ui:VisualElement name="wall4HpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" style="background-color: #7d7d7d;" />
+                </ui:VisualElement>
             </ui:VisualElement>
 </ui:VisualElement>
 

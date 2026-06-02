@@ -170,7 +170,14 @@ bool gameStarted = false;
         if (!string.IsNullOrEmpty(roomNameInput.value))
         {
             Debug.Log($"[LobbyUIToolkit] Join Room Clicked: {roomNameInput.value}");
-            LobbyManager.Instance.JoinRoom(roomNameInput.value);
+            if (roomNameInput.value.Length == 6)
+            {
+                LobbyManager.Instance.JoinByCode(roomNameInput.value);
+            }
+            else
+            {
+                LobbyManager.Instance.JoinRoom(roomNameInput.value);
+            }
         }
     }
 
@@ -250,7 +257,8 @@ bool gameStarted = false;
 
         if (roomInfoText != null)
         {
-            roomInfoText.text = $"LOBBY: {roomNameInput.value}\nPLAYERS: {NetworkManager.Singleton.ConnectedClientsList.Count}/{GameConstants.MAX_PLAYERS_PER_ROOM}";
+            string joinCode = LobbyManager.Instance != null ? LobbyManager.Instance.JoinCode : "";
+            roomInfoText.text = $"LOBBY: {roomNameInput.value}\nCODE: {joinCode}\nPLAYERS: {NetworkManager.Singleton.ConnectedClientsList.Count}/{GameConstants.MAX_PLAYERS_PER_ROOM}";
         }
 
         playerList.Clear();

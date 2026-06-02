@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 // El arabası — oyun başından mevcut, craft gerektirmez. Rigidbody ile itilerek hareket eder.
 // Kapasite ve hız WheelbarrowData SO'dan gelir; IUpgradeable ile Tier1→2→3 yükseltilebilir.
 [RequireComponent(typeof(Rigidbody))]
-public class WheelbarrowController : MonoBehaviour, IUpgradeable
+public class WheelbarrowController : NetworkBehaviour, IUpgradeable
 {
     [Header("Veri")]
     [SerializeField] private WheelbarrowData[] levelData;       // Her UpgradeLevel için bir kayıt

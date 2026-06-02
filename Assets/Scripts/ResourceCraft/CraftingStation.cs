@@ -11,14 +11,35 @@ public class CraftingStation : NetworkBehaviour, IInteractable, IUpgradeable
     [SerializeField] private RecipeData[] recipes;
 
     [Header("Yükseltme")]
+    private readonly NetworkVariable<int> levelSync = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     [SerializeField] private UpgradeLevel level = UpgradeLevel.Tier1;
     [SerializeField] private UpgradeData[] upgrades;        // fromLevel -> toLevel adımları
 
+    private bool isSyncing;
+
+    public override void OnNetworkSpawn()
+    {
+        levelSync.OnValueChanged += OnLevelSyncChanged;
+        if (IsServer) levelSync.Value = (int)level;
+        else level = (UpgradeLevel)levelSync.Value;
+    }
+
+    private void OnLevelSyncChanged(int oldVal, int newVal)
+    {
+        if (isSyncing) return;
+        isSyncing = true;
+        level = (UpgradeLevel)newVal;
+        OnUpgraded?.Invoke(level);
+        isSyncing = false;
+    }
+
     [Header("Etkileşim")]
-    [SerializeField] private string interactPrompt = "[E] Craft";
+[SerializeField] private string interactPrompt = "[E] Craft";
 
     [Header("Craft")]
     [SerializeField] private CraftQueueManager queue;
+
+    public CraftQueueManager Queue => queue;
 
     public IReadOnlyList<RecipeData> Recipes => recipes;
 
@@ -167,8 +188,24 @@ public class CraftingStation : NetworkBehaviour, IInteractable, IUpgradeable
         UpgradeData next = GetNextUpgrade();
         if (next == null) return;
 
+        if (IsServer)
+        {
+            levelSync.Value = (int)next.toLevel;
+        }
+        else
+        {
+            // Client ise Server'dan talep et
+            RequestUpgradeServerRpc((int)next.toLevel);
+        }
+
         level = next.toLevel;
         OnUpgraded?.Invoke(level);
         EventBus.FireUpgradeCompleted("CraftingStation", level);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestUpgradeServerRpc(int newLevel)
+    {
+        levelSync.Value = newLevel;
     }
 }

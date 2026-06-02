@@ -54,6 +54,8 @@ public class GameStateSync : NetworkBehaviour
         EventBus.OnWaveStart += HandleWaveStart;
         EventBus.OnWaveEnd += HandleWaveEnd;
         EventBus.OnCastleDamaged += HandleCastleDamaged;
+        EventBus.OnShipDestroyed += HandleShipDestroyed;
+        EventBus.OnResourceReceived += HandleResourceReceived;
     }
 
     public void OnDisable()
@@ -62,6 +64,8 @@ public class GameStateSync : NetworkBehaviour
         EventBus.OnWaveStart -= HandleWaveStart;
         EventBus.OnWaveEnd -= HandleWaveEnd;
         EventBus.OnCastleDamaged -= HandleCastleDamaged;
+        EventBus.OnShipDestroyed -= HandleShipDestroyed;
+        EventBus.OnResourceReceived -= HandleResourceReceived;
     }
 
     // ── Host: EventBus -> NetworkVariable / RPC ───────────────────────────
@@ -75,13 +79,16 @@ public class GameStateSync : NetworkBehaviour
     private void HandleWaveStart(int waveNumber)
     {
         if (IsServer)
+        {
             roomWave.Value = waveNumber;
+            BroadcastWaveStartRpc(waveNumber);
+        }
     }
 
     private void HandleWaveEnd(int waveNumber)
     {
         if (IsServer)
-            RPC_WaveEndRpc(waveNumber);
+            BroadcastWaveEndRpc(waveNumber);
     }
 
     private void HandleCastleDamaged(float current, float max)
@@ -90,10 +97,43 @@ public class GameStateSync : NetworkBehaviour
             castleHP.Value = current;
     }
 
-    // ── Client: RPC -> EventBus ─────────────────────────────────────────
+    private void HandleShipDestroyed(ShipType type, Vector3 pos)
+    {
+        if (IsServer)
+            BroadcastShipDestroyedRpc(type, pos);
+    }
 
-    [Rpc(SendTo.NotOwner)]
-    private void RPC_WaveEndRpc(int waveNumber) => EventBus.FireWaveEnd(waveNumber);
+    private void HandleResourceReceived(ResourceType type, int amount)
+    {
+        if (IsServer)
+            BroadcastResourceReceivedRpc(type, amount);
+    }
+
+    // ── RPCs: Server -> Everyone ─────────────────────────────────────────
+
+    [Rpc(SendTo.Everyone)]
+    private void BroadcastWaveStartRpc(int waveNumber)
+    {
+        if (!IsServer) EventBus.FireWaveStart(waveNumber);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void BroadcastWaveEndRpc(int waveNumber)
+    {
+        if (!IsServer) EventBus.FireWaveEnd(waveNumber);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void BroadcastShipDestroyedRpc(ShipType type, Vector3 pos)
+    {
+        if (!IsServer) EventBus.FireShipDestroyed(type, pos);
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void BroadcastResourceReceivedRpc(ResourceType type, int amount)
+    {
+        if (!IsServer) EventBus.FireResourceReceived(type, amount);
+    }
 
     // ── Client: NetworkVariable OnValueChanged -> EventBus ──────────────
 
@@ -105,7 +145,9 @@ public class GameStateSync : NetworkBehaviour
 
     private void OnWaveChangedValue(int oldVal, int newVal)
     {
-        if (!IsServer)
+        // WaveStart is handled by BroadcastWaveStartRpc for active players.
+        // For late joiners, we could fire it here if the value is non-zero.
+        if (!IsServer && oldVal == 0 && newVal > 0)
             EventBus.FireWaveStart(newVal);
     }
 

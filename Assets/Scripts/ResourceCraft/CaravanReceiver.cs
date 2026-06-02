@@ -41,6 +41,10 @@ public class CaravanReceiver : MonoBehaviour
 
             if (storage != null)
                 storage.Deposit(entry.resourceType, entry.amount);
+            
+            if (EconomyManager.Instance != null)
+                EconomyManager.Instance.AddResource(entry.resourceType, entry.amount);
+            
             EventBus.FireResourceReceived(entry.resourceType, entry.amount);
         }
     }

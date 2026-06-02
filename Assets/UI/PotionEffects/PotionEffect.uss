@@ -1,0 +1,16 @@
+/*
+2026-06-02 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+.root {
+    flex-grow: 1;
+}
+
+.potion-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0);
+}

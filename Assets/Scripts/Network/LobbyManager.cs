@@ -19,6 +19,8 @@ public class LobbyManager : NetworkBehaviour
     private ISession currentSession;
     private string currentSessionId;
 
+    public string JoinCode => currentSession?.Code ?? "";
+
     // Server-side ready tracker
     private readonly Dictionary<ulong, bool> playerReadyStates = new Dictionary<ulong, bool>();
     // Client-side ready tracker (synchronized from server)
@@ -88,7 +90,7 @@ OnLobbyChanged?.Invoke();
                 NetworkManager.Singleton.StartClient();
                 
                 OnJoinedRoomEvent?.Invoke();
-OnLobbyChanged?.Invoke();
+                OnLobbyChanged?.Invoke();
             }
             else
             {
@@ -98,6 +100,27 @@ OnLobbyChanged?.Invoke();
         catch (Exception e)
         {
             Debug.LogError($"[LobbyManager] Failed to join session: {e.Message}");
+        }
+    }
+
+    public async void JoinByCode(string code)
+    {
+        try
+        {
+            currentSession = await MultiplayerService.Instance.JoinSessionByCodeAsync(code);
+            currentSessionId = currentSession.Id;
+
+            Debug.Log($"[LobbyManager] Joined session by code '{code}' with ID: {currentSessionId}");
+
+            // Start Netcode as Client
+            NetworkManager.Singleton.StartClient();
+
+            OnJoinedRoomEvent?.Invoke();
+            OnLobbyChanged?.Invoke();
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"[LobbyManager] Failed to join session by code: {e.Message}");
         }
     }
 

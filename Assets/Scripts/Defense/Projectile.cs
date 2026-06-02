@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 // Merminin hangi tarafa ait olduğu — dost ateşi (friendly fire) filtresi için.
 public enum ProjectileTeam { Player, Enemy }
@@ -9,12 +10,36 @@ public enum ProjectileTeam { Player, Enemy }
 // Cannon mermisi: yerçekimi açık (parabolik). Archer oku: yerçekimi kapalı (düz, hızlı).
 // splashRadius > 0 ise vuruş noktası çevresine Physics.OverlapSphere ile alan hasarı uygular.
 [RequireComponent(typeof(Rigidbody))]
-public class Projectile : MonoBehaviour
+public class Projectile : NetworkBehaviour
 {
     [Header("Ayarlar")]
     [SerializeField] private float lifetime = 6f;
     [SerializeField] private LayerMask hitMask = ~0;
     [SerializeField] private bool destroyOnHit = true;
+
+    public struct ProjectileSyncData : INetworkSerializable
+    {
+        public Vector3 direction;
+        public float speed;
+        public float damage;
+        public float splashRadius;
+        public bool useGravity;
+        public ProjectileTeam team;
+        public NetworkObjectReference owner;
+        public NetworkObjectReference operatorToIgnore;
+
+        public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
+        {
+            serializer.SerializeValue(ref direction);
+            serializer.SerializeValue(ref speed);
+            serializer.SerializeValue(ref damage);
+            serializer.SerializeValue(ref splashRadius);
+            serializer.SerializeValue(ref useGravity);
+            serializer.SerializeValue(ref team);
+            serializer.SerializeValue(ref owner);
+            serializer.SerializeValue(ref operatorToIgnore);
+        }
+    }
 
     private Rigidbody rb;
     private float damage;
@@ -27,12 +52,34 @@ public class Projectile : MonoBehaviour
     private Vector3 lastPosition;   // tunneling kontrolü — bir önceki frame konumu
     private bool hasHit;            // tek isabet: sweep + OnTriggerEnter çift saymasın
 
+    private NetworkVariable<ProjectileSyncData> syncData = new NetworkVariable<ProjectileSyncData>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
     public bool Launched => launched;
     public float Damage => damage;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        if (!IsServer)
+        {
+            ProjectileSyncData data = syncData.Value;
+            GameObject ownerObj = null;
+            if (data.owner.TryGet(out NetworkObject ownerNet)) ownerObj = ownerNet.gameObject;
+            
+            GameObject operatorObj = null;
+            if (data.operatorToIgnore.TryGet(out NetworkObject operatorNet)) operatorObj = operatorNet.gameObject;
+
+            Launch(data.direction, data.speed, data.damage, data.splashRadius, data.useGravity, data.team, ownerObj, operatorObj);
+        }
+    }
+
+    public void SetSyncData(ProjectileSyncData data)
+    {
+        syncData.Value = data;
     }
 
     // Kule (CannonTower / ArcherTower) bunu spawn'dan sonra çağırır.
@@ -66,8 +113,15 @@ public class Projectile : MonoBehaviour
     private void Update()
     {
         if (!launched) return;
-        if (Time.time - spawnTime >= lifetime)
-            Destroy(gameObject);
+        
+        if (IsServer && Time.time - spawnTime >= lifetime)
+        {
+            if (NetworkObject != null && NetworkObject.IsSpawned)
+                NetworkObject.Despawn();
+            else
+                Destroy(gameObject);
+            return;
+        }
 
         // Hareket yönüne döndür (parabolik mermide görsel düzgün dursun)
         if (rb.linearVelocity.sqrMagnitude > 0.01f)
@@ -126,12 +180,21 @@ public class Projectile : MonoBehaviour
 
         hasHit = true;
 
-        if (splashRadius > 0f)
-            ApplySplashDamage(point);
-        else if (target != null && !IsFriendlyTarget(target))
-            target.TakeDamage(damage, point);
+        if (IsServer)
+        {
+            if (splashRadius > 0f)
+                ApplySplashDamage(point);
+            else if (target != null && !IsFriendlyTarget(target))
+                target.TakeDamage(damage, point);
 
-        if (destroyOnHit) Destroy(gameObject);
+            if (destroyOnHit)
+            {
+                if (NetworkObject != null && NetworkObject.IsSpawned)
+                    NetworkObject.Despawn();
+                else
+                    Destroy(gameObject);
+            }
+        }
     }
 
     private bool IsOwnerCollider(Collider col)
@@ -188,3 +251,4 @@ public class Projectile : MonoBehaviour
         return false;
     }
 }
+

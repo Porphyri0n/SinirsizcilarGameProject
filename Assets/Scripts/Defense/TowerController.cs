@@ -5,7 +5,7 @@ using Unity.Netcode;
 // Oyuncu kontrollü kule taban sınıfı (IOperable + IInteractable).
 // "[E] Kuleye Gir" ile girilir, kamera kule bakış açısına geçer, oyuncu nişan alır.
 // E veya Escape ile çıkılır. CannonTower / ArcherTower bu sınıftan türer.
-public class TowerController : MonoBehaviour, IOperable, IInteractable
+public class TowerController : NetworkBehaviour, IOperable, IInteractable
 {
     [Header("Veri")]
     [SerializeField] protected DefenseData data;
@@ -71,8 +71,7 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     {
         if (IsOccupied || player == null) return;
 
-        operatorPlayer = player;
-        operatorPlayerID = ResolvePlayerID(player);
+        SetOccupant(player, ResolvePlayerID(player));
         enterFrame = Time.frameCount;
         
         // Operatör kuledeyken fizik çakışmalarını ve titremeyi önlemek için CharacterController'ı TAMAMEN kapat
@@ -87,6 +86,13 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         OnEntered();
     }
 
+    // Network senkronu için yan etkisiz (kamera/input değiştirmeyen) doluluk güncellemesi
+    public void SetOccupant(GameObject player, int pid)
+    {
+        operatorPlayer = player;
+        operatorPlayerID = pid;
+    }
+
     public void Exit(GameObject player)
     {
         if (!IsOccupied) return;
@@ -94,22 +100,22 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         int pid = operatorPlayerID;
         GameObject leaving = operatorPlayer;
 
-        if (cameraRig != null) cameraRig.ExitView();
+        if (cameraRig != null && IsLocalOperator()) cameraRig.ExitView();
         
         // Teleport öncesi kapalı olduğundan emin ol (Enter'da kapatmıştık)
         var cc = leaving.GetComponent<CharacterController>();
-        if (cc != null) cc.enabled = false;
+        if (cc != null && IsLocalActor(pid)) cc.enabled = false;
 
-        if (exitPoint != null && leaving != null)
+        if (exitPoint != null && leaving != null && IsLocalActor(pid))
         {
             // ExitPoint biraz daha içerde ve güvenli bir yükseklikte olmalı
             leaving.transform.position = exitPoint.position;
         }
         
         // Teleport bittikten sonra fiziği geri aç
-        if (cc != null) cc.enabled = true;
+        if (cc != null && IsLocalActor(pid)) cc.enabled = true;
         
-        SetPlayerControlEnabled(leaving, true);
+        if (IsLocalActor(pid)) SetPlayerControlEnabled(leaving, true);
 
         operatorPlayer = null;
         operatorPlayerID = -1;
@@ -117,6 +123,12 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
 
         EventBus.FireTowerExited(pid, DefenseType);
         OnExited();
+    }
+
+    private static bool IsLocalActor(int pid)
+    {
+        return Unity.Netcode.NetworkManager.Singleton != null 
+            && (ulong)pid == Unity.Netcode.NetworkManager.Singleton.LocalClientId;
     }
 
     public void Operate(Vector3 aimDirection)
@@ -129,6 +141,8 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
     protected virtual void Update()
     {
         if (!IsOccupied || Time.frameCount == enterFrame) return;
+
+        if (!IsLocalOperator()) return;
 
         // E veya Escape ile kuleyi terk et
         if (Input.GetKeyDown(KeyCode.E) || Input.GetKeyDown(KeyCode.Escape))
@@ -164,17 +178,56 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         // Kamera bakış yönünü veya aimPivot'un forward'ını baz alalım (muzzle bazen yanlış durabiliyor)
         Vector3 dir = aimPivot != null ? aimPivot.forward : origin.forward;
         
-        // Mermi (Sadece logic: Hasar veren mermi sadece sahibi/server tarafından kontrol edilmeli)
-        // Mevcut projede projectile local instantiate ediliyor.
-        GameObject obj = Instantiate(projectilePrefab, origin.position, Quaternion.LookRotation(dir));
-        Projectile projectile = obj.GetComponent<Projectile>();
-        if (projectile != null)
-            projectile.Launch(dir, projectileSpeed, Damage, SplashRadius, ProjectileUsesGravity, ProjectileTeam.Player, gameObject, Operator);
-
-        // Feedback: Lokal olarak hemen oynat
+        // Lokal olarak hemen oynat
         PlayFireEffects(origin.position, dir);
 
+        // Server'a bildir
+        FireServerRpc(origin.position, dir);
+
         EventBus.FireTowerFired(DefenseType, origin.position + dir * Range);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void FireServerRpc(Vector3 originPos, Vector3 direction)
+    {
+        GameObject obj = Instantiate(projectilePrefab, originPos, Quaternion.LookRotation(direction));
+        Projectile projectile = obj.GetComponent<Projectile>();
+        
+        if (projectile != null)
+        {
+            Projectile.ProjectileSyncData syncData = new Projectile.ProjectileSyncData
+            {
+                direction = direction,
+                speed = projectileSpeed,
+                damage = Damage,
+                splashRadius = SplashRadius,
+                useGravity = ProjectileUsesGravity,
+                team = ProjectileTeam.Player,
+                owner = new NetworkObjectReference(gameObject),
+                operatorToIgnore = new NetworkObjectReference(operatorPlayer)
+            };
+
+            projectile.SetSyncData(syncData);
+            
+            NetworkObject netObj = obj.GetComponent<NetworkObject>();
+            if (netObj != null)
+                netObj.Spawn();
+                
+            // Server'da mermiyi başlat (Data zaten set edildi, ClientRpc'den önce spawn ve launch önemli)
+            projectile.Launch(direction, projectileSpeed, Damage, SplashRadius, ProjectileUsesGravity, ProjectileTeam.Player, gameObject, operatorPlayer);
+        }
+
+        // Diğer client'lara görsel efektleri yayınla
+        PlayFireEffectsClientRpc(originPos, direction);
+    }
+
+    [ClientRpc]
+    private void PlayFireEffectsClientRpc(Vector3 pos, Vector3 dir)
+    {
+        // Operatör zaten lokal olarak oynattı, tekrar oynatmasın
+        if (IsLocalOperator()) return;
+        
+        PlayFireEffects(pos, dir);
     }
 
     private void HandleTowerFiredGlobal(DefenseType type, Vector3 targetPos)
@@ -185,10 +238,10 @@ public class TowerController : MonoBehaviour, IOperable, IInteractable
         Transform origin = muzzle != null ? muzzle : (aimPivot != null ? aimPivot : transform);
         Vector3 dir = (targetPos - origin.position).normalized;
         
-        PlayFireEffects(origin.position, dir);
+        // PlayFireEffects(origin.position, dir); // Artık ClientRpc ile yapılıyor
     }
 
-    private bool IsLocalOperator()
+    public bool IsLocalOperator()
     {
         return IsOccupied && Unity.Netcode.NetworkManager.Singleton != null 
             && (ulong)operatorPlayerID == Unity.Netcode.NetworkManager.Singleton.LocalClientId;

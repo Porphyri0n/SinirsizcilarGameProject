@@ -58,8 +58,18 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
         }
     }
 
-    public void TakeDamage(float amount, Vector3 hitPoint)
+    /// <summary>
+    /// Network senkronu için yan etkisiz (EventBus tetiklemeyen) can güncellemesi.
+    /// </summary>
+    public void SetHealth(float health)
     {
+        currentHealth = Mathf.Clamp(health, 0f, maxHealth);
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
+        UpdateDamageVisuals();
+    }
+
+    public void TakeDamage(float amount, Vector3 hitPoint)
+{
         if (!IsAlive || amount <= 0f)
             return;
 

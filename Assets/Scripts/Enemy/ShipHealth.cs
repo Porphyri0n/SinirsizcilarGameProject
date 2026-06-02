@@ -1,18 +1,20 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Düşman gemisinin can sistemi (IDamageable). Hasar alır, canı bitince batar.
 // Maksimum can ShipData'dan okunur; batınca EventBus.FireShipDestroyed pozisyonla tetiklenir.
-public class ShipHealth : MonoBehaviour, IDamageable
+// NetworkVariable kullanılarak tüm client'larda can senkronize edilir.
+public class ShipHealth : NetworkBehaviour, IDamageable
 {
     [SerializeField] private ShipData shipData;
 
-    private float currentHealth;
+    private readonly NetworkVariable<float> netHealth = new NetworkVariable<float>(100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private bool isSunk;
 
-    public float CurrentHealth => currentHealth;
+    public float CurrentHealth => netHealth.Value;
     public float MaxHealth => shipData != null ? shipData.maxHealth : 0f;
-    public bool IsAlive => !isSunk && currentHealth > 0f;
+    public bool IsAlive => !isSunk && netHealth.Value > 0f;
 
     public event Action OnDeath;
     public event Action<float, float> OnHealthChanged;      // mevcut can, maksimum can — efekt/UI için
@@ -23,17 +25,47 @@ public class ShipHealth : MonoBehaviour, IDamageable
     {
         // ObjectPooler ile tekrar kullanımda durumu sıfırla
         isSunk = false;
-        currentHealth = MaxHealth;
+        if (IsServer)
+        {
+            netHealth.Value = MaxHealth;
+        }
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        netHealth.OnValueChanged += HandleHealthChanged;
+        
+        // Initial sync for late joiners or re-enabled objects
+        if (!IsServer)
+        {
+            OnHealthChanged?.Invoke(netHealth.Value, MaxHealth);
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        netHealth.OnValueChanged -= HandleHealthChanged;
+    }
+
+    private void HandleHealthChanged(float previousValue, float newValue)
+    {
+        OnHealthChanged?.Invoke(newValue, MaxHealth);
+    }
+
+    [Rpc(SendTo.Server)]
+    public void RequestTakeDamageRpc(float amount, Vector3 hitPoint)
+    {
+        TakeDamage(amount, hitPoint);
     }
 
     public void TakeDamage(float amount, Vector3 hitPoint)
     {
-        if (!IsAlive || amount <= 0f) return;
+        if (!IsServer || !IsAlive || amount <= 0f) return;
 
-        currentHealth = Mathf.Max(0f, currentHealth - amount);
-        OnHealthChanged?.Invoke(currentHealth, MaxHealth);
+        netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
+        // Note: OnHealthChanged will be triggered via NetworkVariable callback
 
-        if (currentHealth <= 0f)
+        if (netHealth.Value <= 0f)
             Sink();
     }
 
@@ -44,6 +76,12 @@ public class ShipHealth : MonoBehaviour, IDamageable
         isSunk = true;
         EventBus.FireShipDestroyed(Type, transform.position);
         OnDeath?.Invoke();
+
+        // Server-authoritative despawn
+        if (IsServer && NetworkObject != null && NetworkObject.IsSpawned)
+        {
+            NetworkObject.Despawn();
+        }
     }
 
     // WaveSpawner / ObjectPooler gemiyi yapılandırırken ShipData'yı buradan verir
@@ -51,6 +89,9 @@ public class ShipHealth : MonoBehaviour, IDamageable
     {
         shipData = data;
         isSunk = false;
-        currentHealth = MaxHealth;
+        if (IsServer)
+        {
+            netHealth.Value = MaxHealth;
+        }
     }
 }

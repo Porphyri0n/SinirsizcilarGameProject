@@ -1,11 +1,12 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Sahile varan geminin kaleye saldırı davranışı.
 // ShipMovement.OnReachedShore'u dinler; sahile varınca attackInterval aralıklarla
 // Önce duvarlara (Defense tag), duvarlar yıkılınca kaleye (Castle tag) top atışı yapar.
 [RequireComponent(typeof(ShipMovement))]
-public class ShipAttack : MonoBehaviour
+public class ShipAttack : NetworkBehaviour
 {
     [SerializeField] private ShipData shipData;
     [SerializeField] private ShipMovement movement;
@@ -24,7 +25,7 @@ public class ShipAttack : MonoBehaviour
     [SerializeField] private float reTargetChance = 0.2f;
 
     private IDamageable currentTarget;
-private bool isAttacking;
+    private bool isAttacking;
     private float nextAttackTime;
 
     private float AttackDamage => shipData != null ? shipData.attackDamage : 10f;
@@ -57,6 +58,9 @@ private bool isAttacking;
 
     private void HandleReachedShore()
     {
+        // Sadece server hedef belirler ve ateş döngüsünü başlatır
+        if (!IsServer) return;
+        
         isAttacking = true;
         nextAttackTime = Time.time + AttackInterval;
         currentTarget = FindBestTarget();
@@ -71,7 +75,7 @@ private bool isAttacking;
 
     private void Update()
     {
-        if (!isAttacking) return;
+        if (!IsServer || !isAttacking) return;
         
         // Gemi öldüyse ateş etmeyi bırak
         if (health != null && !health.IsAlive)
@@ -124,12 +128,41 @@ private bool isAttacking;
 
         // Mermiyi oluştur ve fırlat
         GameObject obj = Instantiate(projectilePrefab, origin.position, Quaternion.LookRotation(launchVelocity));
-        Projectile projectile = obj.GetComponent<Projectile>();
-        if (projectile != null)
+        
+        // Netcode Spawn
+        NetworkObject netObj = obj.GetComponent<NetworkObject>();
+        if (netObj != null)
         {
-            // Projectile.Launch içinde rb.linearVelocity = direction.normalized * speed yapılıyor.
-            // Bu yüzden direction ve hızı ayrı veriyoruz.
-            projectile.Launch(launchVelocity.normalized, launchVelocity.magnitude, AttackDamage, 0f, true, ProjectileTeam.Enemy, gameObject);
+            Projectile projectile = obj.GetComponent<Projectile>();
+            if (projectile != null)
+            {
+                // SyncData ayarla (Late joiner ve clientlar için)
+                var syncData = new Projectile.ProjectileSyncData
+                {
+                    direction = launchVelocity.normalized,
+                    speed = launchVelocity.magnitude,
+                    damage = AttackDamage,
+                    splashRadius = 0f,
+                    useGravity = true,
+                    team = ProjectileTeam.Enemy,
+                    owner = new NetworkObjectReference(gameObject)
+                };
+                projectile.SetSyncData(syncData);
+                
+                netObj.Spawn();
+                
+                // Serverda başlat
+                projectile.Launch(launchVelocity.normalized, launchVelocity.magnitude, AttackDamage, 0f, true, ProjectileTeam.Enemy, gameObject);
+            }
+        }
+        else
+        {
+            // NetworkObject yoksa (fallback)
+            Projectile projectile = obj.GetComponent<Projectile>();
+            if (projectile != null)
+            {
+                projectile.Launch(launchVelocity.normalized, launchVelocity.magnitude, AttackDamage, 0f, true, ProjectileTeam.Enemy, gameObject);
+            }
         }
     }
 
@@ -266,3 +299,4 @@ private bool isAttacking;
         shipData = data;
     }
 }
+

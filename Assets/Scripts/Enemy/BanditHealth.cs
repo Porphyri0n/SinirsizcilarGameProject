@@ -1,18 +1,20 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Haydut can sistemi (IDamageable). Hasar alır, canı bitince ölür.
 // Maksimum can BanditData'dan okunur; ölünce EventBus.FireBanditKilled tür ve pozisyonla tetiklenir.
-public class BanditHealth : MonoBehaviour, IDamageable
+// NetworkVariable kullanılarak tüm client'larda can senkronize edilir.
+public class BanditHealth : NetworkBehaviour, IDamageable
 {
     [SerializeField] private BanditData banditData;
 
-    private float currentHealth;
+    private readonly NetworkVariable<float> netHealth = new NetworkVariable<float>(100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private bool isDead;
 
-    public float CurrentHealth => currentHealth;
+    public float CurrentHealth => netHealth.Value;
     public float MaxHealth => banditData != null ? banditData.maxHealth : 0f;
-    public bool IsAlive => !isDead && currentHealth > 0f;
+    public bool IsAlive => !isDead && netHealth.Value > 0f;
 
     public event Action OnDeath;
     public event Action<float, float> OnHealthChanged;      // mevcut can, maksimum can — efekt/UI için
@@ -23,17 +25,41 @@ public class BanditHealth : MonoBehaviour, IDamageable
     {
         // ObjectPooler ile tekrar kullanımda durumu sıfırla
         isDead = false;
-        currentHealth = MaxHealth;
+        if (IsServer)
+        {
+            netHealth.Value = MaxHealth;
+        }
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        netHealth.OnValueChanged += HandleHealthChanged;
+        
+        // Initial sync for late joiners or re-enabled objects
+        if (!IsServer)
+        {
+            OnHealthChanged?.Invoke(netHealth.Value, MaxHealth);
+        }
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        netHealth.OnValueChanged -= HandleHealthChanged;
+    }
+
+    private void HandleHealthChanged(float previousValue, float newValue)
+    {
+        OnHealthChanged?.Invoke(newValue, MaxHealth);
     }
 
     public void TakeDamage(float amount, Vector3 hitPoint)
     {
-        if (!IsAlive || amount <= 0f) return;
+        if (!IsServer || !IsAlive || amount <= 0f) return;
 
-        currentHealth = Mathf.Max(0f, currentHealth - amount);
-        OnHealthChanged?.Invoke(currentHealth, MaxHealth);
+        netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
+        // Note: OnHealthChanged will be triggered via NetworkVariable callback
 
-        if (currentHealth <= 0f)
+        if (netHealth.Value <= 0f)
             Die();
     }
 
@@ -44,6 +70,12 @@ public class BanditHealth : MonoBehaviour, IDamageable
         isDead = true;
         EventBus.FireBanditKilled(Type, transform.position);
         OnDeath?.Invoke();
+
+        // Server-authoritative despawn
+        if (IsServer && NetworkObject != null && NetworkObject.IsSpawned)
+        {
+            NetworkObject.Despawn();
+        }
     }
 
     // BanditSpawner haydutu yapılandırırken BanditData'yı (Raider/Brute) buradan verir
@@ -51,6 +83,9 @@ public class BanditHealth : MonoBehaviour, IDamageable
     {
         banditData = data;
         isDead = false;
-        currentHealth = MaxHealth;
+        if (IsServer)
+        {
+            netHealth.Value = MaxHealth;
+        }
     }
 }

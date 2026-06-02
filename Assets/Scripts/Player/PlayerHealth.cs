@@ -1,48 +1,69 @@
 using System;
 using UnityEngine;
+using Unity.Netcode;
 
 // Oyuncu canı. IDamageable implement eder.
 // Can biterse OnDeath fire eder ve EventBus.FirePlayerDied ile herkese haber verir.
-public class PlayerHealth : MonoBehaviour, IDamageable
+public class PlayerHealth : NetworkBehaviour, IDamageable
 {
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private int playerID = -1;     // Client ID — network katmanı atar
 
-    private float currentHealth;
-    private bool isDead;
+    private readonly NetworkVariable<float> netHealth = new NetworkVariable<float>(100f, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> netIsDead = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    public float CurrentHealth => currentHealth;
+    public float CurrentHealth => netHealth.Value;
     public float MaxHealth => maxHealth;
-    public bool IsAlive => !isDead;
+    public bool IsAlive => !netIsDead.Value;
 
     public event Action OnDeath;
 
     private void Awake()
     {
-        currentHealth = maxHealth;
+        // NetworkVariable'lar OnNetworkSpawn'da initialize edilir.
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        if (IsServer)
+        {
+            netHealth.Value = maxHealth;
+            netIsDead.Value = false;
+        }
+
+        netIsDead.OnValueChanged += (oldVal, newVal) => {
+            if (newVal && !oldVal)
+            {
+                OnDeath?.Invoke();
+                EventBus.FirePlayerDied(playerID, transform.position);
+            }
+        };
+        
+        // netHealth.OnValueChanged hooked if needed (e.g. for UI)
     }
 
     public void TakeDamage(float amount, Vector3 hitPoint)
     {
-        if (isDead || amount <= 0f) return;
+        if (!IsServer) return;
+        if (netIsDead.Value || amount <= 0f) return;
 
-        currentHealth = Mathf.Max(0f, currentHealth - amount);
-        if (currentHealth <= 0f)
+        netHealth.Value = Mathf.Max(0f, netHealth.Value - amount);
+        if (netHealth.Value <= 0f)
             Die();
     }
 
     private void Die()
     {
-        isDead = true;
-        OnDeath?.Invoke();
-        EventBus.FirePlayerDied(playerID, transform.position);
+        if (!IsServer) return;
+        netIsDead.Value = true;
     }
 
     // Revive / spawn sonrası can'ı geri doldurur.
     public void ResetHealth()
     {
-        isDead = false;
-        currentHealth = maxHealth;
+        if (!IsServer) return;
+        netIsDead.Value = false;
+        netHealth.Value = maxHealth;
     }
 
     public void SetPlayerID(int id) => playerID = id;
