@@ -23,12 +23,14 @@ public class CameraShake : MonoBehaviour
     [Tooltip("Perlin noise hizi — daha yuksek = daha gergin titreme.")]
     [SerializeField] private float frequency = 22f;
 
-    private Vector3 originalLocalPos;
     private float shakeTimer;
     private float shakeMagnitude;
     private float shakeDuration;
     private float noiseSeedX;
     private float noiseSeedY;
+
+    private PlayerController localPlayerController;
+    private Vector3 lastShakeOffset;
 
     private void Awake()
     {
@@ -37,9 +39,6 @@ public class CameraShake : MonoBehaviour
 
         if (targetTransform == null && Camera.main != null)
             targetTransform = Camera.main.transform;
-
-        if (targetTransform != null)
-            originalLocalPos = targetTransform.localPosition;
     }
 
     private void OnEnable()
@@ -56,26 +55,64 @@ public class CameraShake : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (targetTransform == null || shakeTimer <= 0f) return;
+        if (targetTransform == null) return;
 
-        shakeTimer -= Time.deltaTime;
-        float k = Mathf.Clamp01(shakeTimer / shakeDuration);   // 1 -> 0 (lineer sonlanma)
-        float amount = shakeMagnitude * k;
+        Vector3 offset = Vector3.zero;
+        if (shakeTimer > 0f)
+        {
+            shakeTimer -= Time.deltaTime;
+            float k = Mathf.Clamp01(shakeTimer / shakeDuration);   // 1 -> 0 (lineer sonlanma)
+            float amount = shakeMagnitude * k;
 
-        // Perlin noise -1..1 araligina cevir, frekansla kayar (sabit seed = her shake farkli desen)
-        float t = Time.time * frequency;
-        float x = (Mathf.PerlinNoise(noiseSeedX, t) - 0.5f) * 2f;
-        float y = (Mathf.PerlinNoise(noiseSeedY, t) - 0.5f) * 2f;
-        targetTransform.localPosition = originalLocalPos + new Vector3(x, y, 0f) * amount;
+            // Perlin noise -1..1 araligina cevir, frekansla kayar (sabit seed = her shake farkli desen)
+            float t = Time.time * frequency;
+            float x = (Mathf.PerlinNoise(noiseSeedX, t) - 0.5f) * 2f;
+            float y = (Mathf.PerlinNoise(noiseSeedY, t) - 0.5f) * 2f;
+
+            offset = targetTransform.right * x * amount + targetTransform.up * y * amount;
+        }
+
+        if (localPlayerController == null)
+        {
+            PlayerController[] controllers = FindObjectsByType<PlayerController>(FindObjectsSortMode.None);
+            foreach (var c in controllers)
+            {
+                if (c.IsOwner)
+                {
+                    localPlayerController = c;
+                    break;
+                }
+            }
+        }
+
+        bool isPlayerCamera = localPlayerController != null && localPlayerController.enabled;
+
+        if (isPlayerCamera)
+        {
+            targetTransform.position += offset;
+        }
+        else
+        {
+            targetTransform.position -= lastShakeOffset;
+            targetTransform.position += offset;
+            lastShakeOffset = offset;
+        }
 
         if (shakeTimer <= 0f)
-            targetTransform.localPosition = originalLocalPos;
+        {
+            lastShakeOffset = Vector3.zero;
+        }
     }
 
     // Disaridan da cagrilabilir — orn. kale hasari, top patlama.
     public void Shake(float duration, float magnitude)
     {
-        if (targetTransform == null || duration <= 0f || magnitude <= 0f) return;
+        if (duration <= 0f || magnitude <= 0f) return;
+
+        if (Camera.main != null)
+            targetTransform = Camera.main.transform;
+
+        if (targetTransform == null) return;
 
         // Daha buyuk bir shake aktifse onu ezme
         if (shakeTimer > 0f && magnitude < shakeMagnitude && shakeTimer > duration * 0.5f)

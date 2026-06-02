@@ -15,10 +15,20 @@ public abstract class ShipBase : MonoBehaviour, IDamageable
     protected float currentHealth;
     private bool isSinking;
 
+    private ShipHealth _cachedShipHealth;
+    protected ShipHealth CachedShipHealth
+    {
+        get
+        {
+            if (_cachedShipHealth == null) _cachedShipHealth = GetComponent<ShipHealth>();
+            return _cachedShipHealth;
+        }
+    }
+
     // ── IDamageable ──────────────────────────────────────────────────────
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => shipData != null ? shipData.maxHealth : 0f;
-    public bool IsAlive => !isSinking && currentHealth > 0f;
+    public float CurrentHealth => CachedShipHealth != null ? CachedShipHealth.CurrentHealth : currentHealth;
+    public float MaxHealth => CachedShipHealth != null ? CachedShipHealth.MaxHealth : (shipData != null ? shipData.maxHealth : 0f);
+    public bool IsAlive => CachedShipHealth != null ? CachedShipHealth.IsAlive : (!isSinking && currentHealth > 0f);
     public event Action OnDeath;
 
     /// <summary>Geminin tipi (ShipData'dan). BossShip override edebilir.</summary>
@@ -37,10 +47,42 @@ public abstract class ShipBase : MonoBehaviour, IDamageable
         // ObjectPooler ile yeniden kullanımda durumu sıfırla
         isSinking = false;
         currentHealth = MaxHealth;
+
+        if (CachedShipHealth != null)
+        {
+            CachedShipHealth.OnHealthChanged += HandleCachedHealthChanged;
+            CachedShipHealth.OnDeath += HandleCachedDeath;
+        }
+    }
+
+    protected virtual void OnDisable()
+    {
+        if (_cachedShipHealth != null)
+        {
+            _cachedShipHealth.OnHealthChanged -= HandleCachedHealthChanged;
+            _cachedShipHealth.OnDeath -= HandleCachedDeath;
+        }
+    }
+
+    private void HandleCachedHealthChanged(float current, float max)
+    {
+        OnHealthChanged?.Invoke(current, max);
+    }
+
+    private void HandleCachedDeath()
+    {
+        OnDeath?.Invoke();
+        OnSink();
     }
 
     public virtual void TakeDamage(float amount, Vector3 hitPoint)
     {
+        if (CachedShipHealth != null)
+        {
+            CachedShipHealth.TakeDamage(amount, hitPoint);
+            return;
+        }
+
         if (!IsAlive || amount <= 0f)
             return;
 

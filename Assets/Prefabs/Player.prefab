@@ -4147,9 +4147,11 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   moveSpeed: 7
   sprintSpeed: 12
-  jumpForce: 8
-  gravity: -20
+  jumpForce: 13
+  gravity: -35
   rotationSpeed: 12
+  fallGravityMultiplier: 2.5
+  maxJumps: 2
   accelerationTime: 0.12
   directionSmoothing: 16
   coyoteTime: 0.1

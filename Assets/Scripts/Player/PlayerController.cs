@@ -16,6 +16,11 @@ public class PlayerController : NetworkBehaviour
     [SerializeField] private float jumpForce = GameConstants.PLAYER_JUMP_FORCE;
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float rotationSpeed = 12f;
+    [SerializeField] private float fallGravityMultiplier = 1.6f;
+    [SerializeField] private int maxJumps = 2;
+
+    public event Action OnJump;
+    private int jumpCount = 0;
 
     [Header("His Polish")]
     [SerializeField] private float accelerationTime = 0.12f;   // hizin hedef hiza ulasma suresi (yumusatma)
@@ -62,6 +67,12 @@ public class PlayerController : NetworkBehaviour
         potions = GetComponent<PotionSystem>();
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
+
+        // Snappy jump physics settings
+        gravity = -35f;
+        jumpForce = 13f;
+        fallGravityMultiplier = 2.5f;
+        maxJumps = 2;
     }
 
     private void OnEnable()
@@ -222,6 +233,10 @@ public class PlayerController : NetworkBehaviour
                     IsMoving = false;
                     currentSpeed = 0f;
                 }
+
+                // Tek bir Move() çağrısı ile tüm hareketleri birleştir
+                Vector3 finalVelocity = (smoothedMoveDir * currentSpeed) + verticalVelocity + impulseVelocity;
+                controller.Move(finalVelocity * Time.deltaTime);
             }
         }
     }
@@ -274,7 +289,6 @@ public class PlayerController : NetworkBehaviour
     {
         if (impulseVelocity.sqrMagnitude > 0.001f)
         {
-            controller.Move(impulseVelocity * Time.deltaTime);
             impulseVelocity = Vector3.Lerp(impulseVelocity, Vector3.zero, 10f * Time.deltaTime);
         }
     }
@@ -361,8 +375,6 @@ public class PlayerController : NetworkBehaviour
 
         // Yon degisikliklerini de yumusat (ani 180 donuste savrulma hissi azalir)
         smoothedMoveDir = Vector3.Lerp(smoothedMoveDir, rawDir, directionSmoothing * Time.deltaTime);
-
-        controller.Move(smoothedMoveDir * currentSpeed * Time.deltaTime);
     }
 
     private void HandleGravityAndJump()
@@ -370,25 +382,65 @@ public class PlayerController : NetworkBehaviour
         bool grounded = controller.isGrounded;
 
         // Coyote: yerden ayrildiktan sonra kisa sure ziplama hala kabul edilir
-        if (grounded) coyoteCounter = coyoteTime;
-        else coyoteCounter -= Time.deltaTime;
-
-        // Jump buffer: input erken basildiysa yere indikten sonra hala gecerli sayilir
-        if (Input.GetKeyDown(KeyCode.Space)) jumpBufferCounter = jumpBufferTime;
-        else jumpBufferCounter -= Time.deltaTime;
-
-        if (grounded && verticalVelocity.y < 0f)
-            verticalVelocity.y = -2f;   // Yere yapışık kalması için küçük negatif değer
-
-        if (jumpBufferCounter > 0f && coyoteCounter > 0f)
+        if (grounded)
         {
-            verticalVelocity.y = jumpForce;
-            jumpBufferCounter = 0f;
-            coyoteCounter = 0f;
+            coyoteCounter = coyoteTime;
+            jumpCount = 0;
+        }
+        else
+        {
+            coyoteCounter -= Time.deltaTime;
         }
 
-        verticalVelocity.y += gravity * Time.deltaTime;
-        controller.Move(verticalVelocity * Time.deltaTime);
+        // Jump buffer: input erken basildiysa yere indikten sonra hala gecerli sayilir
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            jumpBufferCounter = jumpBufferTime;
+
+            // Havada çift zıplama kontrolü
+            if (!grounded && coyoteCounter <= 0f && jumpCount < maxJumps)
+            {
+                verticalVelocity.y = jumpForce * 0.95f; // Çift zıplama gücü hafif tok dursun
+                jumpCount++;
+                jumpBufferCounter = 0f;
+                coyoteCounter = 0f;
+                OnJump?.Invoke();
+            }
+        }
+        else
+        {
+            jumpBufferCounter -= Time.deltaTime;
+        }
+
+        if (grounded && verticalVelocity.y < 0f)
+        {
+            verticalVelocity.y = -2f;   // Yere yapışık kalması için küçük dikey itme
+        }
+
+        // Yerdeyken veya coyote süresinde zıplama
+        if (jumpBufferCounter > 0f && coyoteCounter > 0f && jumpCount < maxJumps)
+        {
+            verticalVelocity.y = jumpForce;
+            jumpCount++;
+            jumpBufferCounter = 0f;
+            coyoteCounter = 0f;
+            OnJump?.Invoke();
+        }
+
+        // Variable Jump Height: Space bırakıldığında yükselme hızını kes
+        if (Input.GetKeyUp(KeyCode.Space) && verticalVelocity.y > 0f)
+        {
+            verticalVelocity.y *= 0.5f;
+        }
+
+        // Mario-style snappy jump: Düşerken yerçekimini artır
+        float currentGravity = gravity;
+        if (verticalVelocity.y < 0f)
+        {
+            currentGravity *= fallGravityMultiplier;
+        }
+
+        verticalVelocity.y += currentGravity * Time.deltaTime;
 
         // Inis tespiti — havada degildim, simdi yerdeyim → bir karelik flag
         JustLanded = grounded && !wasGrounded;

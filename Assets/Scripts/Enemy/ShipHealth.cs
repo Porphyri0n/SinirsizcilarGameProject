@@ -13,7 +13,19 @@ public class ShipHealth : NetworkBehaviour, IDamageable
     private bool isSunk;
 
     public float CurrentHealth => netHealth.Value;
-    public float MaxHealth => shipData != null ? shipData.maxHealth : 0f;
+    public float MaxHealth
+    {
+        get
+        {
+            if (shipData == null) return 0f;
+            BossShip boss = GetComponent<BossShip>();
+            if (boss != null)
+            {
+                return shipData.maxHealth * Mathf.Max(1f, boss.HealthMultiplier);
+            }
+            return shipData.maxHealth;
+        }
+    }
     public bool IsAlive => !isSunk && netHealth.Value > 0f;
 
     public event Action OnDeath;

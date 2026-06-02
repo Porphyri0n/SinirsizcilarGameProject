@@ -29,6 +29,7 @@ public class TowerController : NetworkBehaviour, IOperable, IInteractable
     [SerializeField] private float fireShakeMagnitude = 0.25f;
     [SerializeField] private float fireShakeDuration = 0.15f;
 
+    private static AudioClip cachedTopClip;
     private GameObject operatorPlayer;
     private int operatorPlayerID = -1;
     private int enterFrame = -1;
@@ -53,6 +54,10 @@ public class TowerController : NetworkBehaviour, IOperable, IInteractable
     protected virtual void Awake()
     {
         if (cameraRig == null) cameraRig = GetComponent<TowerCameraRig>();
+        if (cachedTopClip == null)
+        {
+            cachedTopClip = Resources.Load<AudioClip>("top");
+        }
     }
 
     // ── IInteractable ────────────────────────────────────────────────────
@@ -260,10 +265,13 @@ public class TowerController : NetworkBehaviour, IOperable, IInteractable
         // Feedback: SFX
         if (DefenseType == DefenseType.CannonTower)
         {
-            AudioClip clip = Resources.Load<AudioClip>("top");
-            if (clip != null)
+            if (cachedTopClip == null)
             {
-                AudioSource.PlayClipAtPoint(clip, pos);
+                cachedTopClip = Resources.Load<AudioClip>("top");
+            }
+            if (cachedTopClip != null)
+            {
+                AudioSource.PlayClipAtPoint(cachedTopClip, pos);
             }
         }
         else if (fireSound != null)

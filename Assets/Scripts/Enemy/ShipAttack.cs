@@ -67,10 +67,15 @@ public class ShipAttack : NetworkBehaviour
     }
 
     private ShipHealth health;
+    private static AudioClip cachedTopClip;
 
     private void Awake()
     {
         health = GetComponent<ShipHealth>();
+        if (cachedTopClip == null)
+        {
+            cachedTopClip = Resources.Load<AudioClip>("top");
+        }
     }
 
     private void Update()
@@ -325,10 +330,13 @@ public class ShipAttack : NetworkBehaviour
     [ClientRpc]
     private void PlayFireSoundClientRpc(Vector3 position)
     {
-        AudioClip clip = Resources.Load<AudioClip>("top");
-        if (clip != null)
+        if (cachedTopClip == null)
         {
-            AudioSource.PlayClipAtPoint(clip, position);
+            cachedTopClip = Resources.Load<AudioClip>("top");
+        }
+        if (cachedTopClip != null)
+        {
+            AudioSource.PlayClipAtPoint(cachedTopClip, position);
         }
     }
 }

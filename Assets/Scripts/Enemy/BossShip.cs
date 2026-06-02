@@ -14,6 +14,8 @@ public class BossShip : ShipBase
     [SerializeField] private LootType bonusLootType = LootType.Resource;
     [SerializeField] private float bonusLootRadius = 4f;
 
+    public float HealthMultiplier => healthMultiplier;
+
     [Header("Coklu Saldiri (sahilde)")]
     [SerializeField] private int attackBurstCount = 3;
     [SerializeField] private float burstInterval = 0.4f;

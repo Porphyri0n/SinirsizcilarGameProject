@@ -31,6 +31,22 @@ public class PlayerAnimator : MonoBehaviour
         if (carry == null) carry = GetComponent<CarrySystem>();
     }
 
+    private void OnEnable()
+    {
+        if (controller != null) controller.OnJump += HandleJump;
+    }
+
+    private void OnDisable()
+    {
+        if (controller != null) controller.OnJump -= HandleJump;
+    }
+
+    private void HandleJump()
+    {
+        if (animator != null && animator.enabled)
+            animator.SetTrigger(JumpHash);
+    }
+
     private void Update()
     {
         if (animator == null || !animator.enabled) return;   // ragdoll'dayken Animator kapalı
@@ -50,12 +66,6 @@ public class PlayerAnimator : MonoBehaviour
 
         bool grounded = controller == null || controller.IsGrounded;
         animator.SetBool(GroundedHash, grounded);
-
-        // Zıplama tetiklemesini daha kararlı hale getiriyoruz:
-        // Sadece dikey hız yukarı doğruysa (gerçek zıplama) Jump trigger'ı basılır.
-        // Eğer sadece yere tam basmıyorsa (flicker) tetiklenmez.
-        if (wasGrounded && !grounded && controller != null && controller.VerticalVelocityY > 0.1f)
-            animator.SetTrigger(JumpHash);
             
         wasGrounded = grounded;
     }
