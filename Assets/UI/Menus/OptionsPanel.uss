@@ -1,0 +1,68 @@
+/*
+2026-06-02 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+.options-root {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.options-panel {
+    min-width: 400px;
+    padding: var(--spacing-lg);
+    background-color: var(--color-bg-dark);
+    border-radius: var(--panel-radius);
+    border-width: 2px;
+    border-color: var(--color-accent);
+}
+
+.options-header {
+    font-size: 24px;
+    margin-bottom: var(--spacing-lg);
+    -unity-text-align: middle-center;
+    color: var(--color-accent);
+}
+
+.options-content {
+    margin-bottom: var(--spacing-lg);
+}
+
+.option-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-md);
+}
+
+.option-label {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-right: var(--spacing-md);
+    color: var(--color-text);
+}
+
+.option-field {
+    flex-grow: 1;
+}
+
+.options-buttons {
+    align-items: center;
+}
+
+.menu-button {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background-color: var(--color-accent);
+    color: black;
+    border-radius: var(--panel-radius);
+    -unity-font-style: bold;
+    border-width: 0;
+}
+
+.menu-button:hover {
+    background-color: #ffd633;
+}

@@ -38,14 +38,27 @@ public class VoiceChatManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oyuncunun kulaklığını kapat/aç — tüm gelen sesi susturur.
+    /// Mikrofon cihazını değiştirir.
     /// </summary>
-    public void SetDeafen(bool deafened)
+    public void SetMicrophone(string deviceName)
     {
         var comms = FindFirstObjectByType<DissonanceComms>();
         if (comms != null)
         {
-            comms.IsDeafened = deafened;
+            comms.MicrophoneName = deviceName;
         }
+        else
+        {
+            Debug.LogWarning($"[VoiceChatManager] SetMicrophone({deviceName}) çağrıldı fakat DissonanceComms bulunamadı.");
+        }
+    }
+
+    /// <summary>
+    /// Mevcut mikrofon cihazını döndürür.
+    /// </summary>
+    public string GetCurrentMicrophone()
+    {
+        var comms = FindFirstObjectByType<DissonanceComms>();
+        return comms != null ? comms.MicrophoneName : null;
     }
 }

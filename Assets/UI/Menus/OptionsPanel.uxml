@@ -1,0 +1,36 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="project://database/Assets/UI/Common/Common.uss" />
+    <ui:Style src="OptionsPanel.uss" />
+    
+    <ui:VisualElement name="optionsRoot" class="options-root" picking-mode="Ignore">
+        <ui:VisualElement class="panel options-panel" picking-mode="Position">
+            <ui:Label text="AYARLAR" class="label options-header" />
+            
+            <ui:VisualElement class="options-content">
+                <ui:VisualElement class="option-row">
+                    <ui:Label text="Mikrofon:" class="label option-label" />
+                    <ui:DropdownField name="micDropdown" class="option-field" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="option-row">
+                    <ui:Label text="Hoparlör:" class="label option-label" />
+                    <ui:DropdownField name="speakerDropdown" class="option-field" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="option-row">
+                    <ui:Label text="Çözünürlük:" class="label option-label" />
+                    <ui:DropdownField name="resDropdown" class="option-field" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="option-row">
+                    <ui:Label text="VSync:" class="label option-label" />
+                    <ui:Toggle name="vsyncToggle" class="option-field" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="options-buttons">
+                <ui:Button name="closeButton" text="KAPAT" class="menu-button" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
