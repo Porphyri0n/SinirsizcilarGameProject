@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using Unity.Netcode;
 
 // Boss gemisi — her 5 wave'de bir gelen guclu varyant. ShipBase'den turer.
 // Ekstra can (healthMultiplier ile carpilir), sahile varinca burst saldiri,
@@ -26,6 +27,8 @@ public class BossShip : ShipBase
     private ShipHealth health;          // boss prefabinda damage'i bu component aliyor olabilir
     private bool lootDropped;           // loot iki olum yolundan tek sefer dussun
     private float enableTime;
+
+    private bool IsServer => NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer;
 
     // Tip her zaman Boss — shipData yanlis bile olsa dogru rapor edilsin
     public override ShipType Type => ShipType.Boss;
@@ -64,7 +67,7 @@ public class BossShip : ShipBase
 
     private void Update()
     {
-        if (!IsAlive) return;
+        if (!IsServer || !IsAlive) return;
         if (movement != null && movement.HasArrived) return;
 
         // Yon vektorune dik eksende sinus kaydirma — zigzag
@@ -78,7 +81,8 @@ public class BossShip : ShipBase
 
     private void HandleReachedShore()
     {
-        StartCoroutine(AttackBurstRoutine());
+        if (IsServer)
+            StartCoroutine(AttackBurstRoutine());
     }
 
     private IEnumerator AttackBurstRoutine()

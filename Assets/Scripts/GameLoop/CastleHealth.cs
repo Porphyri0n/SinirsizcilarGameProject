@@ -18,8 +18,22 @@ public class CastleHealth : MonoBehaviour, IDamageable
     public bool IsAlive => !destroyed && currentHealth > 0f;
     public event Action OnDeath;
 
-    private void Awake()
+    /// <summary>
+    /// Network senkronu için yan etkisiz can güncellemesi.
+    /// </summary>
+    public void SetHealth(float health)
     {
+        currentHealth = Mathf.Clamp(health, 0f, maxHealth);
+        EventBus.FireCastleDamaged(currentHealth, maxHealth);
+        
+        if (currentHealth <= 0f && !destroyed)
+            HandleDestroyed();
+        else if (currentHealth > 0f && destroyed)
+            destroyed = false; // Tamir mekanizması varsa diye
+    }
+
+    private void Awake()
+{
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         currentHealth = maxHealth;

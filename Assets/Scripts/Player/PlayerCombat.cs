@@ -9,8 +9,8 @@ public class PlayerCombat : NetworkBehaviour
 {
     [Header("Saldırı")]
     [SerializeField] private Transform attackOrigin;
-    [SerializeField] private float attackRange = 2.5f;
-    [SerializeField] private float attackRadius = 0.6f;
+    [SerializeField] private float attackRange = 3.5f;
+    [SerializeField] private float attackRadius = 0.9f;
     [SerializeField] private LayerMask hitMask = ~0;
 
     [SerializeField] private int playerID = -1;

@@ -1,0 +1,8 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="InteractPrompt.uss" />
+    <ui:VisualElement name="promptRoot" class="prompt-root">
+        <ui:VisualElement name="promptPanel" class="prompt-panel">
+            <ui:Label name="promptLabel" text="[E] Kullan" class="prompt-label" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

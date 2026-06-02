@@ -74,7 +74,22 @@ public class RespawnController : MonoBehaviour
         }
 
         root.style.display = DisplayStyle.None;
-        EventBus.FirePlayerRevived(pid);
+        
+        // Local player can request their own revival via ServerRpc
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
+        {
+            var localPlayerObj = NetworkManager.Singleton.LocalClient.PlayerObject;
+            if (localPlayerObj != null)
+            {
+                var spawnController = localPlayerObj.GetComponent<PlayerSpawnController>();
+                if (spawnController != null)
+                {
+                    Debug.Log("[RespawnController] Requesting revival via ServerRpc");
+                    spawnController.RequestReviveServerRpc();
+                }
+            }
+        }
+        
         respawnCoroutine = null;
     }
 }

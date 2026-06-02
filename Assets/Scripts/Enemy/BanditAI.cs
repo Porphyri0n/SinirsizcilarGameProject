@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.AI;
+using Unity.Netcode;
 
 // Haydut AI durumu — BanditNetSync int olarak ağ üzerinden taşır (animasyon/sync için).
 public enum BanditState { Idle, Chase, Attack, Retreat }
@@ -39,10 +40,14 @@ public class BanditAI : MonoBehaviour
     private float AttackDamage => data != null ? data.attackDamage : 5f;
     private float AttackInterval => (data != null && data.attackInterval > 0f) ? data.attackInterval : 1f;
 
+    private BanditNetSync netSync;
+    private bool IsServer => netSync != null ? netSync.IsServer : true;
+
     private void Awake()
     {
         if (health == null) health = GetComponent<BanditHealth>();
         if (agent == null) agent = GetComponent<NavMeshAgent>();
+        netSync = GetComponent<BanditNetSync>();
     }
 
     private void OnEnable()
@@ -56,6 +61,12 @@ public class BanditAI : MonoBehaviour
         {
             agent.speed = MoveSpeed;
             agent.stoppingDistance = attackRange * 0.8f;
+        }
+        
+        // Clientlarda agent'ı kapat (Server-authoritative position sync için)
+        if (agent != null && NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            agent.enabled = false;
         }
     }
 
@@ -73,12 +84,33 @@ public class BanditAI : MonoBehaviour
 
     private void Update()
     {
+        if (IsServer)
+        {
+            UpdateServerLogic();
+            if (netSync != null) netSync.AiState = (int)State;
+        }
+        else
+        {
+            UpdateClientState();
+        }
+    }
+
+    private void UpdateServerLogic()
+    {
         switch (State)
         {
             case BanditState.Idle: TickIdle(); break;
             case BanditState.Chase: TickChase(); break;
             case BanditState.Attack: TickAttack(); break;
             case BanditState.Retreat: TickRetreat(); break;
+        }
+    }
+
+    private void UpdateClientState()
+    {
+        if (netSync != null)
+        {
+            State = (BanditState)netSync.AiState;
         }
     }
 

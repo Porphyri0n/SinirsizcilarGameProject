@@ -84,8 +84,10 @@ public class CastleWalls : MonoBehaviour
         }
     }
 
+    public int GetWallIndex(Wall wall) => walls.IndexOf(wall);
+
     public void RegisterWall(Wall wall)
-    {
+{
         if (!walls.Contains(wall))
         {
             walls.Add(wall);

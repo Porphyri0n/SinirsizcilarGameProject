@@ -1,0 +1,25 @@
+/*
+2026-06-02 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+.prompt-root {
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.prompt-panel {
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    padding: 8px 16px;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.prompt-label {
+    color: white;
+    font-size: 24px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}

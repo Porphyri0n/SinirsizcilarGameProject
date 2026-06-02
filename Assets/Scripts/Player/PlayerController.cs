@@ -160,11 +160,17 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
         {
             gameStarted = GameNetworkManager.Instance.GameStarted;
         }
+        else
+        {
+            // Fallback: Eğer hiçbir manager yoksa (örn. test sahnesi), oyunu başlamış sayalım
+            gameStarted = true;
+        }
 
         // Oyun ilk başladığında cursor'ı otomatik kilitlemeyi dene
         if (gameStarted && !wasGameStarted)
         {
             wasGameStarted = true;
+            // Başlangıçta UI aktif olsa bile kilitlemeyi denemeye devam edeceğiz (tıklama ile)
             if (!isUIActive)
             {
                 Cursor.lockState = CursorLockMode.Locked;
@@ -172,8 +178,9 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
             }
         }
 
-        // İmleci oyuna almak için tıklama kontrolü (sadece UI dışına tıklandığında ve oyun başladıysa)
-        if (Input.GetMouseButtonDown(0) && !isUIActive && gameStarted)
+        // İmleci oyuna almak için tıklama kontrolü (sadece UI dışına tıklandığında ve oyun başladıysa/sahneyse)
+        bool canLock = gameStarted || (IsOwner && UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("GameScene"));
+        if (Input.GetMouseButtonDown(0) && !isUIActive && canLock)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -186,7 +193,7 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
             Cursor.visible = true;
         }
 
-        if (gameStarted)
+        if (gameStarted || IsOwner) // Yerçekimi her zaman çalışsın (IsOwner ise)
         {
             if (isClimbing)
             {
@@ -197,8 +204,8 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
                 HandleGravityAndJump();
                 HandleImpulse();
                 
-                // Hareket sadece cursor kilitliyken
-                if (Cursor.lockState == CursorLockMode.Locked)
+                // Hareket sadece cursor kilitliyken veya oyun baslamıssa
+                if (Cursor.lockState == CursorLockMode.Locked || (gameStarted && !isUIActive))
                 {
                     HandleMovement();
                     
