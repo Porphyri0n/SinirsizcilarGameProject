@@ -70,9 +70,17 @@ public class WeaponManager : MonoBehaviour
     {
         DestroyInstance(ref current);
         if (prefab == null || socket == null) return;
+        
         current = Instantiate(prefab, socket);
         current.transform.localPosition = Vector3.zero;
         current.transform.localRotation = Quaternion.identity;
+        
+        // His Polish: Fizik çakışmalarını önlemek için katmanı ayarla ve collider'ları trigger yap
+        current.layer = LayerMask.NameToLayer("Ignore Raycast"); 
+        foreach(var col in current.GetComponentsInChildren<Collider>())
+        {
+            col.isTrigger = true;
+        }
     }
 
     private void DestroyInstance(ref GameObject obj)

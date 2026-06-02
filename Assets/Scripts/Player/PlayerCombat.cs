@@ -88,7 +88,7 @@ public class PlayerCombat : MonoBehaviour
             GameObject targetGO = hit.collider.gameObject;
             IDamageable target = targetGO.GetComponentInParent<IDamageable>();
             
-            if (target != null && target.IsAlive)
+            if (target != null && target.IsAlive && !IsFriendlyTarget(targetGO))
             {
                 // Network Sync: Farklı birimler için uygun RPC'yi çağır
                 if (targetGO.TryGetComponent(out BanditNetSync banditNet) || targetGO.GetComponentInParent<BanditNetSync>())
@@ -116,6 +116,18 @@ public class PlayerCombat : MonoBehaviour
 
         Vector3 firePos = hitSomething ? hit.point : origin + dir * attackRange;
         EventBus.FirePlayerAttacked(playerID, damage, firePos);
+    }
+
+    private bool IsFriendlyTarget(GameObject targetGO)
+    {
+        Transform t = targetGO.transform;
+        while (t != null)
+        {
+            if (t.CompareTag(GameConstants.TAG_DEFENSE) || t.CompareTag(GameConstants.TAG_CASTLE))
+                return true;
+            t = t.parent;
+        }
+        return false;
     }
 
     private void ApplyHitJuice(Vector3 pos)

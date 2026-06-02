@@ -16,10 +16,15 @@ public class CraftingMenuController : MonoBehaviour
     private CraftingStation currentStation;
     private RecipeData selectedRecipe;
 
+    private VisualElement craftingRoot;
+    private int openFrame = -1;
+
     private void OnEnable()
     {
         root = GetComponent<UIDocument>().rootVisualElement;
-        root.style.display = DisplayStyle.None;
+        craftingRoot = root.Q<VisualElement>("craftingRoot");
+        
+        if (craftingRoot != null) craftingRoot.style.display = DisplayStyle.None;
 
         recipeScrollView = root.Q<ScrollView>("recipeScrollView");
         ingredientList = root.Q<VisualElement>("ingredientList");
@@ -28,37 +33,60 @@ public class CraftingMenuController : MonoBehaviour
         craftButton = root.Q<Button>("craftButton");
         closeButton = root.Q<Button>("closeButton");
 
-        craftButton.clicked += HandleCraft;
-        closeButton.clicked += () => CloseMenu();
+        if (craftButton != null) craftButton.clicked += HandleCraft;
+        if (closeButton != null) closeButton.clicked += CloseMenu;
         
-        // Find all stations and subscribe
-        foreach (var station in FindObjectsByType<CraftingStation>(FindObjectsSortMode.None))
-        {
-            station.OnCraftMenuRequested += () => OpenMenu(station);
-        }
+        EventBus.OnOpenCraftingMenu += OpenMenu;
+        EventBus.OnResourceReceived += HandleResourceChanged;
+        EventBus.OnResourceDeposited += HandleResourceChanged;
     }
 
     private void OnDisable()
     {
-        foreach (var station in FindObjectsByType<CraftingStation>(FindObjectsSortMode.None))
+        if (craftButton != null) craftButton.clicked -= HandleCraft;
+        if (closeButton != null) closeButton.clicked -= CloseMenu;
+        EventBus.OnOpenCraftingMenu -= OpenMenu;
+        EventBus.OnResourceReceived -= HandleResourceChanged;
+        EventBus.OnResourceDeposited -= HandleResourceChanged;
+    }
+
+    private void HandleResourceChanged(ResourceType type, int amount)
+    {
+        if (craftingRoot != null && craftingRoot.style.display == DisplayStyle.Flex)
         {
-            station.OnCraftMenuRequested -= () => OpenMenu(station);
+            UpdateCraftButtonState();
         }
     }
 
     public void OpenMenu(CraftingStation station)
     {
+        if (station == null) return;
+        Debug.Log($"[CraftingMenuController] Opening for: {station.name}");
         currentStation = station;
-        root.style.display = DisplayStyle.Flex;
+        if (craftingRoot != null) craftingRoot.style.display = DisplayStyle.Flex;
+        
         UnityEngine.Cursor.lockState = CursorLockMode.None;
         UnityEngine.Cursor.visible = true;
         
+        openFrame = Time.frameCount;
         PopulateRecipes();
+    }
+
+    private void Update()
+    {
+        if (craftingRoot != null && craftingRoot.style.display == DisplayStyle.Flex && Time.frameCount != openFrame)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.E))
+            {
+                CloseMenu();
+            }
+        }
     }
 
     public void CloseMenu()
     {
-        root.style.display = DisplayStyle.None;
+        Debug.Log("[CraftingMenuController] Closing.");
+        if (craftingRoot != null) craftingRoot.style.display = DisplayStyle.None;
         UnityEngine.Cursor.lockState = CursorLockMode.Locked;
         UnityEngine.Cursor.visible = false;
         currentStation = null;
@@ -127,6 +155,7 @@ public class CraftingMenuController : MonoBehaviour
         {
             if (currentStation.TryCraft(selectedRecipe))
             {
+                Debug.Log($"[CraftingMenuController] Successfully requested craft: {selectedRecipe.recipeName}");
                 UpdateCraftButtonState();
             }
         }

@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Netcode;
 
 // Craft ocağı — oyuncu "[E] Craft" ile etkileşir, tarifler buradan listelenir.
 // Yükseltilebilir: ocak seviyesi arttıkça daha ileri seviye tarifler açılır.
-public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
+public class CraftingStation : NetworkBehaviour, IInteractable, IUpgradeable
 {
     [Header("Tarifler")]
     [SerializeField] private RecipeData[] recipes;
@@ -30,6 +31,7 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
 
     public void Interact(GameObject player)
     {
+        Debug.Log($"[CraftingStation] Interacted by {player.name}");
         OnCraftMenuRequested?.Invoke();
         EventBus.FireOpenCraftingMenu(this);
     }
@@ -67,22 +69,47 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
     }
 
     // Craft isteği — seviye + kaynak yeterliyse maliyeti düşer, kuyruğa ekler.
-    // Yetersizse hiçbir kaynak harcanmaz, craft engellenir (false).
     public bool TryCraft(RecipeData recipe)
     {
         if (!CanCraft(recipe)) return false;        // ocak seviyesi yetmiyor
         if (!CanAfford(recipe)) return false;       // kaynak yetersiz → engelle
 
-        SpendIngredients(recipe);
+        if (IsServer)
+        {
+            SpendIngredients(recipe);
+            if (queue != null) queue.Enqueue(recipe);
+            return true;
+        }
+        else
+        {
+            // Client ise Server'dan talep et
+            RequestCraftServerRpc(recipe.recipeName);
+            return true; // Talep iletildi varsayıyoruz
+        }
+    }
 
-        if (queue != null) queue.Enqueue(recipe);
-        return true;
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestCraftServerRpc(string recipeName)
+    {
+        RecipeData recipe = null;
+        foreach (var r in recipes)
+        {
+            if (r.recipeName == recipeName) { recipe = r; break; }
+        }
+
+        if (recipe != null && CanCraft(recipe) && CanAfford(recipe))
+        {
+            SpendIngredients(recipe);
+            if (queue != null) queue.Enqueue(recipe);
+            
+            // Client'a başarılı olduğunu bildir (OnCraftStarted event'i zaten CraftNetSync üzerinden yayılır)
+        }
     }
 
     // Tarifteki tüm malzemeleri EconomyManager'dan düş. (CanAfford önce doğrulanmalı)
     private void SpendIngredients(RecipeData recipe)
     {
-        if (recipe.ingredients == null) return;
+        if (!IsServer || recipe.ingredients == null) return;
 
         EconomyManager econ = EconomyManager.Instance;
         if (econ == null) return;
@@ -95,10 +122,9 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
     }
 
     // Bekleyen + aktif tüm craft'ları iptal eder ve harcanan kaynakları geri verir.
-    // (Önceden cancel kaynakları yutuyordu — TryCraft maliyeti enqueue anında düşüyor.)
     public void CancelCrafts()
     {
-        if (queue == null) return;
+        if (!IsServer || queue == null) return;
 
         foreach (RecipeData recipe in queue.GetPendingRecipes())
             RefundIngredients(recipe);
@@ -109,7 +135,7 @@ public class CraftingStation : MonoBehaviour, IInteractable, IUpgradeable
     // Tarifteki malzemeleri EconomyManager'a geri ekler (iptal iadesi).
     private void RefundIngredients(RecipeData recipe)
     {
-        if (recipe == null || recipe.ingredients == null) return;
+        if (!IsServer || recipe == null || recipe.ingredients == null) return;
 
         EconomyManager econ = EconomyManager.Instance;
         if (econ == null) return;

@@ -83,7 +83,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1053309974
+  GlobalObjectIdHash: 683363731
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -108,11 +108,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72b3345b9c93f6f488110d5c782316a8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
   recipes:
   - {fileID: 11400000, guid: c7f3b9a41669f6f468e2dc84ea28c9ba, type: 2}
   - {fileID: 11400000, guid: eb731501c592d324db4898df7b6188fb, type: 2}
   - {fileID: 11400000, guid: 9aa547d5a869cbc468dfc80f61791d21, type: 2}
   - {fileID: 11400000, guid: f63d04ca2dc73ea48a05d09da46996a1, type: 2}
+  - {fileID: 11400000, guid: fd5d29c65bb6c2346aa3f3897db460d6, type: 2}
+  - {fileID: 11400000, guid: 919f3bca945563140b399d193f61ef4c, type: 2}
+  - {fileID: 11400000, guid: 02ea6090ad832a04ea9a9d9a58228a2f, type: 2}
+  - {fileID: 11400000, guid: a96d86adbb5472d4abea806cb6065ae9, type: 2}
   level: 0
   upgrades:
   - {fileID: 11400000, guid: 8353e3d05018eaf47bf8852498a57c4e, type: 2}
@@ -143,6 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a15e71f437abf180b8e79df8ff8da398, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &845992332318764701
 MonoBehaviour:
   m_ObjectHideFlags: 0

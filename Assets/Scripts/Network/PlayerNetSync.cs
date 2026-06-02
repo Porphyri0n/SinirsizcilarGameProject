@@ -48,6 +48,10 @@ public class PlayerNetSync : NetworkBehaviour
         netPos.OnValueChanged += OnPositionChanged;
         netCarry.OnValueChanged += OnCarryChanged;
 
+        // Proximity chat: tüm oyuncuları (hem local hem remote) kaydet
+        if (ProximityChatManager.Instance != null)
+            ProximityChatManager.Instance.RegisterPlayer((int)OwnerClientId, transform);
+
         if (!IsOwner)
         {
             ApplyCarryState(netCarry.Value.ToString());
@@ -114,6 +118,10 @@ public class PlayerNetSync : NetworkBehaviour
     {
         netPos.OnValueChanged -= OnPositionChanged;
         netCarry.OnValueChanged -= OnCarryChanged;
+
+        // Proximity chat kaydını sil
+        if (ProximityChatManager.Instance != null)
+            ProximityChatManager.Instance.UnregisterPlayer((int)OwnerClientId);
 
         if (IsOwner && GameStateSync.Instance != null)
         {

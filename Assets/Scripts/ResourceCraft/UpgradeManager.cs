@@ -1,11 +1,12 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using Unity.Netcode;
 
 // Yükseltme orkestratörü — maliyet kontrol, kaynak harca, süre say, sonunda IUpgradeable.Upgrade().
 // Ocak, kule, el arabası yükseltmeleri buradan geçer.
 // EventBus.FireUpgradeCompleted(targetName, newLevel) bitişte tetiklenir.
-public class UpgradeManager : MonoBehaviour
+public class UpgradeManager : NetworkBehaviour
 {
     public static UpgradeManager Instance { get; private set; }
 
@@ -38,11 +39,72 @@ public class UpgradeManager : MonoBehaviour
         UpgradeData next = target.GetNextUpgrade();
         if (next == null) return false;
 
+        // Client ise Server'a talep gönder
+        if (IsClient && !IsServer)
+        {
+            // Bu projenin IUpgradeable implemente eden objeleri NetworkObject ID ile bulması gerekir.
+            // Şimdilik basitleştirmek adına: Eğer target bir Component ise NetworkObject'ini bulabiliriz.
+            var netObj = (target as Component)?.GetComponentInParent<NetworkObject>();
+            if (netObj != null)
+            {
+                RequestUpgradeServerRpc(netObj.NetworkObjectId, targetName);
+                return true; // Talep gönderildi
+            }
+            return false;
+        }
+
+        // Server ise veya single player ise işlemi başlat
         if (!HasResources(next)) return false;
         if (!SpendResources(next)) return false;
 
-        StartCoroutine(UpgradeRoutine(target, targetName, next));
+        StartUpgradeInternal(target, targetName, next);
         return true;
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestUpgradeServerRpc(ulong networkObjectId, string targetName)
+    {
+        if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(networkObjectId, out var netObj))
+        {
+            var target = netObj.GetComponentInChildren<IUpgradeable>();
+            if (target != null)
+            {
+                TryStartUpgrade(target, targetName);
+            }
+        }
+    }
+
+    private void StartUpgradeInternal(IUpgradeable target, string targetName, UpgradeData next)
+    {
+        StartCoroutine(UpgradeRoutine(target, targetName, next));
+        NotifyUpgradeStartedClientRpc(targetName, next.upgradeTime);
+    }
+
+    [ClientRpc]
+    private void NotifyUpgradeStartedClientRpc(string targetName, float duration)
+    {
+        if (IsServer) return; // Zaten local coroutine çalışıyor
+        
+        // Client tarafında sadece görsel/UI takibi için coroutine başlat
+        StartCoroutine(ClientProgressRoutine(targetName, duration));
+    }
+
+    private IEnumerator ClientProgressRoutine(string targetName, float duration)
+    {
+        IsUpgrading = true;
+        CurrentTargetName = targetName;
+        Progress = 0f;
+        
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            Progress = Mathf.Clamp01(t / duration);
+            yield return null;
+        }
+
+        IsUpgrading = false;
+        Progress = 0f;
     }
 
     private bool HasResources(UpgradeData data)

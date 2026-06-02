@@ -1,16 +1,25 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Dissonance;
 
-// Proximity (yakınlık) sesli sohbet hesaplayıcısı. Singleton.
-// Konuşan ile dinleyen arası mesafeye göre ses seviyesi (0..1) verir; ses motoru (VoiceChatManager) bunu kullanır.
-// Kuledeki oyuncunun menzili TOWER_VOICE_RANGE — pratikte tüm haritaya ulaşır.
+// Proximity sesli sohbet yöneticisi — Singleton.
+// Dissonance'ın VoiceProximityBroadcastTrigger/VoiceProximityReceiptTrigger bileşenleri
+// mesafe tabanlı grid proximity'yi otomatik yönetir; bu sınıf yalnızca
+// kule boost'u (TOWER_VOICE_RANGE) için trigger Range'ini runtime'da değiştirir.
 public class ProximityChatManager : MonoBehaviour
 {
     public static ProximityChatManager Instance { get; private set; }
 
-    private readonly Dictionary<int, Transform> players = new Dictionary<int, Transform>();
+    // playerId → (broadcast trigger, receipt trigger) — runtime referansları
+    private readonly Dictionary<int, PlayerVoiceTriggers> players = new Dictionary<int, PlayerVoiceTriggers>();
     private readonly HashSet<int> playersInTower = new HashSet<int>();
+
+    private struct PlayerVoiceTriggers
+    {
+        public VoiceProximityBroadcastTrigger broadcast;
+        public VoiceProximityReceiptTrigger receipt;
+    }
 
     private void Awake()
     {
@@ -30,8 +39,21 @@ public class ProximityChatManager : MonoBehaviour
         EventBus.OnTowerExited -= HandleTowerExited;
     }
 
-    // Oyuncular doğunca kaydolur, ölünce/çıkınca silinir
-    public void RegisterPlayer(int playerId, Transform playerTransform) => players[playerId] = playerTransform;
+    // Oyuncu spawn olduğunda PlayerNetSync çağırır.
+    // Transform'dan Dissonance proximity trigger bileşenlerini bulur.
+    public void RegisterPlayer(int playerId, Transform playerTransform)
+    {
+        var triggers = new PlayerVoiceTriggers
+        {
+            broadcast = playerTransform.GetComponent<VoiceProximityBroadcastTrigger>(),
+            receipt = playerTransform.GetComponent<VoiceProximityReceiptTrigger>()
+        };
+        players[playerId] = triggers;
+
+        // Eğer oyuncu zaten kulede spawn olduysa (reconnect vb.) range'i ayarla
+        if (playersInTower.Contains(playerId))
+            ApplyRange(playerId, GameConstants.TOWER_VOICE_RANGE);
+    }
 
     public void UnregisterPlayer(int playerId)
     {
@@ -41,15 +63,16 @@ public class ProximityChatManager : MonoBehaviour
 
     public bool IsInTower(int playerId) => playersInTower.Contains(playerId);
 
-    // İki kayıtlı oyuncu arası ses seviyesi
+    // Geriye dönük uyumluluk — Dissonance artık bunu otomatik yönetiyor.
+    // Dışarıdan çağrılırsa basit mesafe hesabı döndürür.
     public float GetVoiceVolume(int speakerId, int listenerId)
     {
-        if (!players.TryGetValue(speakerId, out Transform speaker)) return 0f;
-        if (!players.TryGetValue(listenerId, out Transform listener)) return 0f;
-        return GetVoiceVolume(speakerId, speaker.position, listener.position);
+        if (!players.TryGetValue(speakerId, out var speakerT)) return 0f;
+        if (!players.TryGetValue(listenerId, out var listenerT)) return 0f;
+        if (speakerT.broadcast == null || listenerT.receipt == null) return 0f;
+        return GetVoiceVolume(speakerId, speakerT.broadcast.transform.position, listenerT.receipt.transform.position);
     }
 
-    // Konuşanın menziline ve mesafeye göre ses seviyesi: yakında tam, falloff'tan sonra azalır, menzil dışında 0
     public float GetVoiceVolume(int speakerId, Vector3 speakerPos, Vector3 listenerPos)
     {
         float range = IsInTower(speakerId) ? GameConstants.TOWER_VOICE_RANGE : GameConstants.VOICE_BASE_RANGE;
@@ -58,12 +81,36 @@ public class ProximityChatManager : MonoBehaviour
         if (distance >= range) return 0f;
         if (distance <= GameConstants.VOICE_FALLOFF_START) return 1f;
 
-        // Falloff bölgesi FALLOFF_START..range arası 1..0'a eşlenir. Eski "1 - d/range"
-        // falloff başında sesi birden 0.5'e düşürüp kademeyi bozuyordu.
         float falloffRange = range - GameConstants.VOICE_FALLOFF_START;
         return Mathf.Clamp01((range - distance) / falloffRange);
     }
 
-    private void HandleTowerEntered(int playerId, DefenseType towerType) => playersInTower.Add(playerId);
-    private void HandleTowerExited(int playerId, DefenseType towerType) => playersInTower.Remove(playerId);
+    // ── Kule Event Handler'ları ──────────────────────────────────────────
+
+    private void HandleTowerEntered(int playerId, DefenseType towerType)
+    {
+        playersInTower.Add(playerId);
+        ApplyRange(playerId, GameConstants.TOWER_VOICE_RANGE);
+    }
+
+    private void HandleTowerExited(int playerId, DefenseType towerType)
+    {
+        playersInTower.Remove(playerId);
+        ApplyRange(playerId, GameConstants.VOICE_BASE_RANGE);
+    }
+
+    // Dissonance trigger'larının Range'ini günceller — kule boost/normal geçişi.
+    // Range int olduğu için Mathf.RoundToInt ile çeviriyoruz.
+    private void ApplyRange(int playerId, float range)
+    {
+        if (!players.TryGetValue(playerId, out var triggers)) return;
+
+        int rangeInt = Mathf.RoundToInt(range);
+
+        if (triggers.broadcast != null)
+            triggers.broadcast.Range = rangeInt;
+
+        if (triggers.receipt != null)
+            triggers.receipt.Range = rangeInt;
+    }
 }

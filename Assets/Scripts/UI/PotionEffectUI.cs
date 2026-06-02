@@ -20,7 +20,11 @@ public class PotionEffectUI : MonoBehaviour
 
     private void Awake()
     {
-        if (edgeOverlay != null) SetAlpha(0f);
+        if (edgeOverlay != null)
+        {
+            edgeOverlay.raycastTarget = false;
+            SetAlpha(0f);
+        }
     }
 
     private void OnEnable()

@@ -62,9 +62,24 @@ private bool isAttacking;
         currentTarget = FindBestTarget();
     }
 
+    private ShipHealth health;
+
+    private void Awake()
+    {
+        health = GetComponent<ShipHealth>();
+    }
+
     private void Update()
     {
         if (!isAttacking) return;
+        
+        // Gemi öldüyse ateş etmeyi bırak
+        if (health != null && !health.IsAlive)
+        {
+            isAttacking = false;
+            return;
+        }
+
         if (Time.time < nextAttackTime) return;
 
         // Hedef yıkıldıysa, kaybolduysa veya belirli bir ihtimalle rastgele başka hedef ara

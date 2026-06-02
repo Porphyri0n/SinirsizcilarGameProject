@@ -37,6 +37,8 @@ public class UpgradePanelController : MonoBehaviour
         EventBus.OnOpenUpgradeMenu -= Open;
     }
 
+    private int openFrame = -1;
+
     public void Open(IUpgradeable target, string targetName)
     {
         currentTarget = target;
@@ -52,8 +54,20 @@ public class UpgradePanelController : MonoBehaviour
         headerLabel.text = $"{targetName} Yükseltme";
         descriptionLabel.text = $"Seviye {nextUpgrade.fromLevel} -> {nextUpgrade.toLevel}";
 
+        openFrame = Time.frameCount;
         PopulateCosts();
         UpdateUpgradeButton();
+    }
+
+    private void Update()
+    {
+        if (root != null && root.style.display == DisplayStyle.Flex && Time.frameCount != openFrame)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape) || Input.GetKeyDown(KeyCode.E))
+            {
+                Close();
+            }
+        }
     }
 
     private void PopulateCosts()

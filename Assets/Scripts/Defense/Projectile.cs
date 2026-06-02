@@ -167,11 +167,24 @@ public class Projectile : MonoBehaviour
     {
         Component comp = target as Component;
         if (comp == null) return false;
-        GameObject go = comp.gameObject;
+        Transform t = comp.transform;
 
-        if (team == ProjectileTeam.Player)
-            return go.CompareTag(GameConstants.TAG_DEFENSE) || go.CompareTag(GameConstants.TAG_CASTLE);
+        // Recursive check up the hierarchy for tags
+        while (t != null)
+        {
+            if (team == ProjectileTeam.Player)
+            {
+                if (t.CompareTag(GameConstants.TAG_DEFENSE) || t.CompareTag(GameConstants.TAG_CASTLE))
+                    return true;
+            }
+            else
+            {
+                if (t.CompareTag(GameConstants.TAG_ENEMY) || t.CompareTag(GameConstants.TAG_BANDIT))
+                    return true;
+            }
+            t = t.parent;
+        }
 
-        return go.CompareTag(GameConstants.TAG_ENEMY) || go.CompareTag(GameConstants.TAG_BANDIT);
+        return false;
     }
 }

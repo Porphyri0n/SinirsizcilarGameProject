@@ -28,6 +28,8 @@ public class TowerAiming : MonoBehaviour
     private float currentYaw;
     private float currentPitch;
     private bool wasOccupied;
+    private float occupiedDuration;
+    private bool hasInitializedRotation;
 
     private void Awake()
     {
@@ -44,6 +46,8 @@ public class TowerAiming : MonoBehaviour
         if (tower == null || !tower.IsOccupied)
         {
             wasOccupied = false;
+            occupiedDuration = 0f;
+            hasInitializedRotation = false;
             return;
         }
 
@@ -55,7 +59,11 @@ public class TowerAiming : MonoBehaviour
             currentPitch = euler.x;
             if (currentPitch > 180f) currentPitch -= 360f;
             wasOccupied = true;
+            occupiedDuration = (towerCamera == null) ? 0.4f : 0f;
+            hasInitializedRotation = false;
         }
+
+        occupiedDuration += Time.deltaTime;
 
         // Mouse Look: Cursor'ı kilitle
         Cursor.lockState = CursorLockMode.Locked;
@@ -68,25 +76,70 @@ public class TowerAiming : MonoBehaviour
         currentPitch -= mouseY;
         currentPitch = Mathf.Clamp(currentPitch, minPitch, maxPitch);
 
-        Vector3 aimDir = Quaternion.Euler(currentPitch, currentYaw, 0f) * Vector3.forward;
-        tower.Operate(aimDir);
+        // Kule geçişi tamamlandıktan sonra (0.4s) kamerayı döndür ve nişan almaya izin ver
+        if (occupiedDuration >= 0.4f)
+        {
+            if (towerCamera != null)
+            {
+                if (!hasInitializedRotation)
+                {
+                    Vector3 camEuler = towerCamera.transform.eulerAngles;
+                    currentYaw = camEuler.y;
+                    currentPitch = camEuler.x;
+                    if (currentPitch > 180f) currentPitch -= 360f;
+                    hasInitializedRotation = true;
+                }
 
-        // Menzil göstergesi için hedef nokta tespiti
-        Vector3 target = GetAimPoint(out IDamageable aimed);
-        UpdateRangeLine(target, IsValidShot(target, aimed));
+                towerCamera.transform.rotation = Quaternion.Euler(currentPitch, currentYaw, 0f);
+            }
+
+            // Calculate direction based on camera hit point
+            Vector3 targetPoint = GetAimPoint(out IDamageable aimed);
+            Transform fireOrigin = (tower.Muzzle != null) ? tower.Muzzle : aimPivot;
+            Vector3 aimDir = (targetPoint - fireOrigin.position).normalized;
+            
+            tower.Operate(aimDir);
+
+            // Menzil göstergesi için hedef nokta tespiti
+            UpdateRangeLine(targetPoint, IsValidShot(targetPoint, aimed));
+        }
+        else
+        {
+            if (rangeLine != null) rangeLine.positionCount = 0;
+        }
     }
 
     // Kamera veya Pivot ileri yönüne raycast
     private Vector3 GetAimPoint(out IDamageable aimed)
     {
         aimed = null;
-        Transform rayOrigin = towerCamera != null ? towerCamera.transform : aimPivot;
-        Ray ray = new Ray(rayOrigin.position, rayOrigin.forward);
         
-        if (Physics.Raycast(ray, out RaycastHit hit, maxAimDistance, aimMask))
+        Ray ray;
+        if (towerCamera != null)
         {
-            aimed = hit.collider.GetComponentInParent<IDamageable>();
-            return hit.point;
+            // Viewport'un tam ortası (0.5, 0.5) crosshair noktasıdır
+            ray = towerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+        }
+        else
+        {
+            ray = new Ray(aimPivot.position, aimPivot.forward);
+        }
+        
+        RaycastHit[] hits = Physics.RaycastAll(ray, maxAimDistance, aimMask);
+        if (hits.Length > 0)
+        {
+            Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            foreach (var hit in hits)
+            {
+                // Kuleyi veya kuleyi kullanan oyuncuyu vurursak yoksay (kendi kendine nişan alıp dönmeyi önler)
+                if (hit.transform.IsChildOf(transform))
+                    continue;
+                if (tower != null && tower.OperatorPlayer != null && hit.transform.IsChildOf(tower.OperatorPlayer.transform))
+                    continue;
+
+                aimed = hit.collider.GetComponentInParent<IDamageable>();
+                return hit.point;
+            }
         }
         return ray.origin + ray.direction * maxAimDistance;
     }

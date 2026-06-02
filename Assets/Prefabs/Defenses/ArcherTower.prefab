@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 141783235338447072}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0.8}
+  m_LocalPosition: {x: 0.6, y: -0.2, z: 1.2}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -56,7 +56,7 @@ Transform:
   m_GameObject: {fileID: 4828981932798360668}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0.5, z: -2.5}
+  m_LocalPosition: {x: 0, y: 1.2, z: 2.5}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -115,14 +115,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1520777953
-  InScenePlacedSourceGlobalObjectIdHash: 0
+  GlobalObjectIdHash: 400842554
+  InScenePlacedSourceGlobalObjectIdHash: 61225797
   DeferredDespawnTick: 0
   Ownership: 1
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
   ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
+  SceneMigrationSynchronization: 0
   SpawnWithObservers: 1
   DontDestroyWithOwner: 0
   AutoObjectParentSync: 1
@@ -175,6 +175,9 @@ MonoBehaviour:
   showRange: 1
   validColor: {r: 0, g: 1, b: 0, a: 1}
   invalidColor: {r: 1, g: 0, b: 0, a: 1}
+  sensitivity: 2
+  minPitch: -20
+  maxPitch: 45
 --- !u!114 &1868453581181586962
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -443,31 +446,31 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 0.6
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -0.2
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 0.4
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.98767215
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0.011376107
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: -0.13002951
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: 0.08641011
       objectReference: {fileID: 0}
     - target: {fileID: 4649083315772600, guid: 6408c39c05f08044b8bfc233d562b49d, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

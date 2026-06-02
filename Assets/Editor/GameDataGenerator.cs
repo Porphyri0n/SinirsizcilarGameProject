@@ -42,13 +42,13 @@ public static class GameDataGenerator
         GenerateBandits();
         GenerateDefenses();
         GenerateWeapons();
-        GeneratePotions();
+        var potions = GeneratePotions();
         GenerateResources();
 
         // Bağımlı varlıklar (ships array'ini kullanır)
         GenerateWaves(ships);
         GenerateCaravans();
-        GenerateRecipes();
+        GenerateRecipes(potions);
         GenerateUpgrades();
         GenerateWheelbarrows();
 
@@ -468,8 +468,11 @@ public static class GameDataGenerator
     // CRAFT TARİFLERİ
     // CraftingStation.CanCraft(): recipe.requiredStationLevel <= station.level
     // ─────────────────────────────────────────────────────────────────────
-    private static void GenerateRecipes()
+    private static void GenerateRecipes(PotionData[] potions)
     {
+        PotionData pdStrength = (potions != null && potions.Length > 0) ? potions[0] : null;
+        PotionData pdHearing = (potions != null && potions.Length > 1) ? potions[1] : null;
+
         // ── Tier 1 tarifler (başlangıçtan itibaren) ───────────────────────
 
         // Güç İksiri — Wood×2 + Stone×1
@@ -480,6 +483,7 @@ public static class GameDataGenerator
             r.craftDuration        = 12f;
             r.outputWeapon         = null;
             r.outputDefense        = null;
+            r.outputPotion         = pdStrength;
             r.ingredients = new RecipeIngredient[]
             {
                 new RecipeIngredient { resourceType = ResourceType.Wood,  amount = 2 },
@@ -495,6 +499,7 @@ public static class GameDataGenerator
             r.craftDuration        = 10f;
             r.outputWeapon         = null;
             r.outputDefense        = null;
+            r.outputPotion         = pdHearing;
             r.ingredients = new RecipeIngredient[]
             {
                 new RecipeIngredient { resourceType = ResourceType.Iron, amount = 1 },
@@ -729,9 +734,9 @@ public static class GameDataGenerator
     // GameConstants: STRENGTH_POTION_DURATION=30, HEARING_POTION_DURATION=45
     //                STRENGTH_MULTIPLIER=1.5, HEARING_RANGE_MULTIPLIER=2.0
     // ─────────────────────────────────────────────────────────────────────
-    private static void GeneratePotions()
+    private static PotionData[] GeneratePotions()
     {
-        CreateAsset<PotionData>(POTION_DIR, "PD_Strength", p =>
+        var strength = CreateAsset<PotionData>(POTION_DIR, "PD_Strength", p =>
         {
             p.potionType      = PotionType.Strength;
             p.displayName     = "Güç İksiri";
@@ -740,7 +745,7 @@ public static class GameDataGenerator
             p.screenTintColor = new Color(1f, 0.35f, 0.1f, 0.18f); // turuncumsu
         });
 
-        CreateAsset<PotionData>(POTION_DIR, "PD_Hearing", p =>
+        var hearing = CreateAsset<PotionData>(POTION_DIR, "PD_Hearing", p =>
         {
             p.potionType      = PotionType.Hearing;
             p.displayName     = "İşitme İksiri";
@@ -748,6 +753,8 @@ public static class GameDataGenerator
             p.effectValue     = 2.0f;  // HEARING_RANGE_MULTIPLIER
             p.screenTintColor = new Color(0.1f, 0.7f, 1f, 0.12f);  // mavimsi
         });
+
+        return new PotionData[] { strength, hearing };
     }
 
     // ─────────────────────────────────────────────────────────────────────

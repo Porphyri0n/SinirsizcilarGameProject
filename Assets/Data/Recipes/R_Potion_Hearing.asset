@@ -18,6 +18,7 @@ MonoBehaviour:
     amount: 1
   - resourceType: 0
     amount: 1
+  outputPotion: {fileID: 11400000, guid: fcc3500167a333a4b988e695a9581729, type: 2}
   requiredStationLevel: 0
   craftDuration: 10
   recipeIcon: {fileID: 0}

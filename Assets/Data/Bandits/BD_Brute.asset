@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   banditType: 1
   displayName: "Brute (G\xFC\xE7l\xFC Haydut)"
-  maxHealth: 16
+  maxHealth: 250
   moveSpeed: 2.5
   attackDamage: 2
   attackInterval: 1.8

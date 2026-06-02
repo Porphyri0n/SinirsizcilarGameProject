@@ -1,14 +1,11 @@
 using System;
 using UnityEngine;
-
-#if DISSONANCE
 using Dissonance;
-#endif
 
-// Proximity sesli sohbet — Dissonance entegrasyonu.
-// Dissonance ses altyapısı, oyuncular arasındaki 3D mesafeyi ve mekansal ses seviyesini (spatial audio)
-// otomatik olarak hesaplar; bu sebeple eski Photon Voice'taki gibi manuel mesafe güncellemelerine gerek yoktur.
-// Dissonance kurulu değilken projenin derlenebilmesi için kodlar #if DISSONANCE bloklarına alınmıştır.
+// Sesli sohbet yönetimi — Dissonance entegrasyonu.
+// Dissonance + VoiceProximityBroadcastTrigger/VoiceProximityReceiptTrigger
+// proximity ses mesafesini otomatik olarak yönetir.
+// Bu sınıf yalnızca global mute/unmute kontrolü sağlar.
 public class VoiceChatManager : MonoBehaviour
 {
     public static VoiceChatManager Instance { get; private set; }
@@ -24,24 +21,31 @@ public class VoiceChatManager : MonoBehaviour
         if (Instance == this) Instance = null;
     }
 
-    // Geriye dönük uyumluluk ve API yapısını bozmamak için stub'lar.
-    // Oyuncu prefab'larındaki Dissonance bileşenleri kendilerini otomatik yönetecektir.
-    public void RegisterLocal(int playerId, MonoBehaviour recorder) { }
-    public void UnregisterLocal() { }
-    public void RegisterRemoteSpeaker(int playerId, MonoBehaviour speaker) { }
-    public void UnregisterRemoteSpeaker(int playerId) { }
-
-    // Mikrofon kapatma / sessize alma — DissonanceComms üzerinden tüm iletimi susturur.
+    /// <summary>
+    /// Mikrofon iletimini aç/kapat — DissonanceComms üzerinden tüm iletimi susturur veya açar.
+    /// </summary>
     public void SetTransmit(bool enabled)
     {
-#if DISSONANCE
         var comms = FindFirstObjectByType<DissonanceComms>();
         if (comms != null)
         {
             comms.IsMuted = !enabled;
         }
-#else
-        Debug.Log($"[VoiceChatManager] SetTransmit({enabled}) çağrıldı fakat Dissonance kurulu değil.");
-#endif
+        else
+        {
+            Debug.LogWarning($"[VoiceChatManager] SetTransmit({enabled}) çağrıldı fakat DissonanceComms bulunamadı.");
+        }
+    }
+
+    /// <summary>
+    /// Oyuncunun kulaklığını kapat/aç — tüm gelen sesi susturur.
+    /// </summary>
+    public void SetDeafen(bool deafened)
+    {
+        var comms = FindFirstObjectByType<DissonanceComms>();
+        if (comms != null)
+        {
+            comms.IsDeafened = deafened;
+        }
     }
 }

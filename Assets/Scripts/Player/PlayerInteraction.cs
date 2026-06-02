@@ -19,6 +19,9 @@ public class PlayerInteraction : MonoBehaviour
     {
         current = FindInteractable();
 
+        // UI açıkken veya mouse serbestken etkileşimi engelle (örn. menü kapatırken E'ye basınca geri açılmasın)
+        if (Cursor.lockState != CursorLockMode.Locked) return;
+
         if (current != null && Input.GetKeyDown(GameConstants.INTERACT_KEY))
             current.Interact(gameObject);
     }

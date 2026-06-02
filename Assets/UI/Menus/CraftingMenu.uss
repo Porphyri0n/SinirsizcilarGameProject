@@ -1,4 +1,8 @@
 /*
+2026-06-01 AI-Tag
+This was created with the help of Assistant, a Unity Artificial Intelligence product.
+*/
+/*
 2026-05-31 AI-Tag
 This was created with the help of Assistant, a Unity Artificial Intelligence product.
 */
@@ -7,25 +11,28 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
     justify-content: center;
     align-items: center;
     background-color: rgba(0, 0, 0, 0.5);
-    display: none;
+    /* display: none removed - handled by script */
 }
 
 .crafting-panel {
     width: 600px;
     height: 500px;
     flex-direction: row;
+    background-color: #2c2c2c;
+    border-width: 2px;
+    border-color: #444;
 }
 
 .recipe-list {
     flex-grow: 1;
-    padding: var(--spacing-md);
+    padding: 10px;
     border-right-width: 1px;
     border-right-color: rgba(255, 255, 255, 0.1);
 }
 
 .recipe-details {
     width: 250px;
-    padding: var(--spacing-md);
+    padding: 10px;
     align-items: center;
 }
 
@@ -41,11 +48,7 @@ This was created with the help of Assistant, a Unity Artificial Intelligence pro
 }
 
 .recipe-item-selected {
-    background-color: var(--color-accent);
-}
-
-.recipe-item-selected .label {
-    color: black;
+    background-color: #e67e22;
 }
 
 .ingredient-item {

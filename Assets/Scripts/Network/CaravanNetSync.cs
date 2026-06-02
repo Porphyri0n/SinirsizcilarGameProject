@@ -89,6 +89,7 @@ public class CaravanNetSync : NetworkBehaviour
     {
         if (approachAnnounced || NetworkObject == null || !NetworkObject.IsSpawned) return;
         approachAnnounced = true;
+        if (controller != null) EventBus.FireCaravanApproaching(controller.Data);
         RPC_CaravanApproachRpc();
     }
 
@@ -97,18 +98,21 @@ public class CaravanNetSync : NetworkBehaviour
         if (attackAnnounced || controller == null) return;
         if (controller.State != CaravanState.UnderAttack) return;
         attackAnnounced = true;
+        EventBus.FireCaravanUnderAttack(transform.position);
         RPC_CaravanAttackedRpc(transform.position);
     }
 
     private void HandleHostArrived()
     {
         if (!AuthorityManager.RequireHost("Caravan arrived")) return;
+        if (controller != null) EventBus.FireCaravanArrived(controller.Data);
         RPC_CaravanArrivedRpc();
     }
 
     private void HandleHostDestroyed()
     {
         if (!AuthorityManager.RequireHost("Caravan destroyed")) return;
+        EventBus.FireCaravanDestroyed();
         RPC_CaravanDestroyedRpc();
     }
 

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   banditType: 0
   displayName: "Raider (H\u0131zl\u0131 Haydut)"
-  maxHealth: 5
+  maxHealth: 100
   moveSpeed: 4
   attackDamage: 1
   attackInterval: 1.2

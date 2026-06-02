@@ -59,58 +59,5 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b0c1c712fb9871b43a660b1a5276c811, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1022798446023246158}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: b0c1c712fb9871b43a660b1a5276c811, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 7027325040971050478}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: b0c1c712fb9871b43a660b1a5276c811, type: 3}
---- !u!1 &2022713811148493809 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: b0c1c712fb9871b43a660b1a5276c811, type: 3}
-  m_PrefabInstance: {fileID: 1212443220693577376}
-  m_PrefabAsset: {fileID: 0}
---- !u!65 &1022798446023246158
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2022713811148493809}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.46302357, y: 0.085627496, z: 0.25857413}
-  m_Center: {x: -0.00033143163, y: 0.040422946, z: -0.001701057}
---- !u!65 &7027325040971050478
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2022713811148493809}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 0.46302357, y: 0.27757362, z: 0.09184265}
-  m_Center: {x: -0.00033143163, y: 0.22194721, z: -0.00060272217}

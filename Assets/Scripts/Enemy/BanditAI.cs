@@ -111,7 +111,26 @@ public class BanditAI : MonoBehaviour
         {
             agent.SetDestination(target.position);
             
-            if (!agent.pathPending && agent.remainingDistance <= attackRange)
+            // Large targets check: if we are close to the collider bounds, we can attack
+            bool withinRange = false;
+            float distToTarget = Vector3.Distance(transform.position, target.position);
+            
+            if (distToTarget <= attackRange) 
+            {
+                withinRange = true;
+            }
+            else
+            {
+                // Check if target has a collider and we are close to its surface
+                var col = target.GetComponentInChildren<Collider>();
+                if (col != null)
+                {
+                    float distToSurface = Vector3.Distance(transform.position, col.ClosestPoint(transform.position));
+                    if (distToSurface <= attackRange) withinRange = true;
+                }
+            }
+
+            if (withinRange || (!agent.pathPending && agent.remainingDistance <= attackRange))
             {
                 State = BanditState.Attack;
             }
@@ -120,7 +139,9 @@ public class BanditAI : MonoBehaviour
         {
             // Fallback to simple movement if NavMesh fails
             Vector3 toTarget = Flat(target.position - transform.position);
-            if (toTarget.sqrMagnitude <= attackRange * attackRange)
+            float distSqr = toTarget.sqrMagnitude;
+            
+            if (distSqr <= attackRange * attackRange)
             {
                 State = BanditState.Attack;
                 return;

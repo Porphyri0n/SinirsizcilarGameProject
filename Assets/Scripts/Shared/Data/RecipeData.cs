@@ -9,6 +9,7 @@ public class RecipeData : ScriptableObject
     public RecipeIngredient[] ingredients;
     public WeaponType? outputWeapon;
     public DefenseType? outputDefense;
+    public PotionData outputPotion;
     public UpgradeLevel requiredStationLevel;
     public float craftDuration;
     public Sprite recipeIcon;
