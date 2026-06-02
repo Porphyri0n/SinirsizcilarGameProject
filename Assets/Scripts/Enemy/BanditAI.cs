@@ -21,6 +21,8 @@ public class BanditAI : MonoBehaviour
     [SerializeField] private float retargetInterval = 1f;
     [SerializeField] private float turnSpeed = 10f;
     [SerializeField] private float retreatTimeout = 4f;
+    [SerializeField] [Tooltip("BanditData.attackDamage ile çarpılır — 2 = iki kat hasar.")]
+    private float damageMultiplier = 2f;
 
     [Header("Ağaçtan Çıkış")]
     [SerializeField] private float emergeDuration = 0.6f;
@@ -37,10 +39,11 @@ public class BanditAI : MonoBehaviour
     private bool chasingPlayer;
 
     private float MoveSpeed => data != null ? data.moveSpeed : 3f;
-    private float AttackDamage => data != null ? data.attackDamage : 5f;
+    private float AttackDamage => (data != null ? data.attackDamage : 5f) * damageMultiplier;
     private float AttackInterval => (data != null && data.attackInterval > 0f) ? data.attackInterval : 1f;
 
     private BanditNetSync netSync;
+    private Rigidbody rb;
     private bool IsServer => netSync != null ? netSync.IsServer : true;
 
     private void Awake()
@@ -48,6 +51,14 @@ public class BanditAI : MonoBehaviour
         if (health == null) health = GetComponent<BanditHealth>();
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         netSync = GetComponent<BanditNetSync>();
+
+        // Freeze rotation so physics can never tip the character over.
+        rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
+            rb.isKinematic  = true;   // NavMeshAgent owns movement; physics is passenger.
+        }
     }
 
     private void OnEnable()
@@ -93,6 +104,23 @@ public class BanditAI : MonoBehaviour
         {
             UpdateClientState();
         }
+    }
+
+    // Safety net: clamp X and Z rotation to 0 every frame so a physics nudge
+    // or a bad NavMesh normal can never tilt the character.
+    private void LateUpdate()
+    {
+        Vector3 e = transform.eulerAngles;
+        if (Mathf.Abs(e.x) > 0.1f || Mathf.Abs(e.z) > 0.1f)
+        {
+            e.x = 0f;
+            e.z = 0f;
+            transform.eulerAngles = e;
+        }
+
+        // Drain any angular velocity that slipped through.
+        if (rb != null && !rb.isKinematic)
+            rb.angularVelocity = Vector3.zero;
     }
 
     private void UpdateServerLogic()

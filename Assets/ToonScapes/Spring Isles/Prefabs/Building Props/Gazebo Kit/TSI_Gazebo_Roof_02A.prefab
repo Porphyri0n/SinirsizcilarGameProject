@@ -56,6 +56,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: TSI_Gazebo_Roof_02A
       objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: e37303946538cac4f80d7730c41155dd, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4742473837712756890, guid: e37303946538cac4f80d7730c41155dd, type: 3}
       propertyPath: m_FadeMode
       value: 1

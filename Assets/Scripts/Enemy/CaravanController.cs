@@ -25,6 +25,7 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
     public float MaxHealth => data != null ? data.maxHealth : 0f;
     public bool IsAlive => !netDestroyed.Value && netHealth.Value > 0f;
     public event Action OnDeath;
+    public event Action<float, float> OnHealthChanged;
 
     private void Awake()
     {
@@ -47,6 +48,37 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
             movement.OnReachedCastle -= HandleReachedCastle;
             movement.OnDeparted -= HandleDeparted;
         }
+    }
+
+    private void Start()
+    {
+        if (GetComponent<DamageFlashEffect>() == null)
+        {
+            gameObject.AddComponent<DamageFlashEffect>();
+        }
+
+        GameObject healthBarPrefab = Resources.Load<GameObject>("WorldHealthBar");
+        if (healthBarPrefab != null)
+        {
+            Instantiate(healthBarPrefab, transform);
+        }
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+        netHealth.OnValueChanged += OnHealthValueChanged;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+        netHealth.OnValueChanged -= OnHealthValueChanged;
+    }
+
+    private void OnHealthValueChanged(float previousValue, float newValue)
+    {
+        OnHealthChanged?.Invoke(newValue, MaxHealth);
     }
 
     // Spawner kervani yapilandirip yolculugu baslatir. wave: kargo olceklemesi icin guncel wave.
@@ -140,7 +172,7 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
 
     // ── IInteractable ────────────────────────────────────────────────────
     public string GetInteractPrompt() => "[E] Kaynak Al";
-    public bool CanInteract(GameObject player) => IsAlive && !netInteracted.Value && !netDelivered.Value;
+    public bool CanInteract(GameObject player) => IsAlive && !netInteracted.Value && !netDelivered.Value && netState.Value == CaravanState.Arrived;
 
     public void Interact(GameObject player)
     {
@@ -153,7 +185,7 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestInteractionServerRpc()
     {
-        if (netInteracted.Value || netDelivered.Value || !IsAlive) return;
+        if (netInteracted.Value || netDelivered.Value || !IsAlive || netState.Value != CaravanState.Arrived) return;
         netInteracted.Value = true;
 
         // Kervanin GERCEK kargosunu encode edip tum client'lara teslim et.

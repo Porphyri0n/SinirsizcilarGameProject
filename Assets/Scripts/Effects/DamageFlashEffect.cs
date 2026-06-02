@@ -39,8 +39,8 @@ public class DamageFlashEffect : MonoBehaviour
             banditHealth.OnHealthChanged += HandleHealthChanged;
         else if (health is ShipHealth shipHealth)
             shipHealth.OnHealthChanged += HandleHealthChanged;
-        // Add more if needed, or better: use an event in IDamageable if it existed.
-        // Since IDamageable doesn't have OnHealthChanged, we check types.
+        else if (health is CaravanController caravan)
+            caravan.OnHealthChanged += HandleHealthChanged;
     }
 
     private void OnDisable()
@@ -49,6 +49,8 @@ public class DamageFlashEffect : MonoBehaviour
             banditHealth.OnHealthChanged -= HandleHealthChanged;
         else if (health is ShipHealth shipHealth)
             shipHealth.OnHealthChanged -= HandleHealthChanged;
+        else if (health is CaravanController caravan)
+            caravan.OnHealthChanged -= HandleHealthChanged;
     }
 
     private void HandleHealthChanged(float current, float max)

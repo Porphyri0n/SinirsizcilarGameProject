@@ -84,7 +84,13 @@
                     <ui:VisualElement name="wall4HpFill" class="progress-bar-fill hp-fill" picking-mode="Ignore" style="background-color: #7d7d7d;" />
                 </ui:VisualElement>
             </ui:VisualElement>
-</ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- POTION PANEL -->
+        <ui:VisualElement name="potionPanel" class="potion-panel" picking-mode="Ignore">
+            <ui:Label text="AKTİF İKSİRLER" class="potion-title" />
+            <ui:VisualElement name="potionList" picking-mode="Ignore" />
+        </ui:VisualElement>
 
     </ui:VisualElement>
 </ui:UXML>

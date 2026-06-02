@@ -126,18 +126,12 @@ public class Wall : MonoBehaviour, IDamageable, IRepairable
 
         OnDeath?.Invoke();
 
-        // Duvar yıkıldığında objeyi hemen silmiyoruz çünkü 
-        // 1. Efektlerin/seslerin tamamlanması için zaman lazım.
-        // 2. Late joiner'ların indexing (GameStateSync) yaparken bu objeyi bulabilmesi lazım.
-        // Bunun yerine görseli ve collider'ı kapatıp bir süre bekliyoruz.
-        
         foreach (var stage in damageStages) if (stage != null) stage.SetActive(false);
         var col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
 
-        // Sahneden tamamen silinmesi için daha uzun bir süre veriyoruz veya hiç silmiyoruz.
-        // Eğer silmezsek indexing her zaman doğru kalır.
-        // Destroy(gameObject, 0.2f); 
+        // Efektin görünmesi için kısa bir bekleme sonrası nesneyi sil.
+        Destroy(gameObject, 0.5f);
     }
 
     /// <summary>Can yüzdesine göre doğru hasar aşamasını aktifleştirir (eşikler: %100 sağlam, %50 çatlak, %25 ağır hasar).</summary>

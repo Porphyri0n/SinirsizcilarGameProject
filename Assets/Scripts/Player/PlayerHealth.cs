@@ -67,4 +67,19 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     }
 
     public void SetPlayerID(int id) => playerID = id;
+
+    // Can doldurma (Heal) metodu
+    public void Heal(float amount)
+    {
+        if (!IsServer) return;
+        if (netIsDead.Value || amount <= 0f) return;
+
+        netHealth.Value = Mathf.Min(maxHealth, netHealth.Value + amount);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestHealServerRpc(float amount)
+    {
+        Heal(amount);
+    }
 }

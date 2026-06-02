@@ -97,7 +97,7 @@ public class CraftingMenuController : MonoBehaviour
         recipeScrollView.Clear();
         if (currentStation == null) return;
 
-        var recipes = currentStation.GetCraftableRecipes().ToArray();
+        var recipes = currentStation.GetCraftableRecipes().Where(r => r.outputPotion != null).ToArray();
         foreach (var recipe in recipes)
         {
             Button recipeBtn = new Button();

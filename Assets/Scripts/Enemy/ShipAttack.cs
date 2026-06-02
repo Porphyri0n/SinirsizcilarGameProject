@@ -216,8 +216,30 @@ public class ShipAttack : NetworkBehaviour
         return Vector3.zero;
     }
 
+    private bool AreAllWallsDestroyed()
+    {
+        Wall[] walls = GameObject.FindObjectsByType<Wall>(FindObjectsSortMode.None);
+        if (walls == null || walls.Length == 0) return true;
+        foreach (var wall in walls)
+        {
+            if (wall.IsAlive) return false;
+        }
+        return true;
+    }
+
     private IDamageable FindBestTarget()
     {
+        // Eğer surlar tamamen yıkıldıysa, doğrudan kaleyi hedef al
+        if (AreAllWallsDestroyed())
+        {
+            GameObject castleGo = GameObject.FindGameObjectWithTag(GameConstants.TAG_CASTLE);
+            if (castleGo != null)
+            {
+                IDamageable castle = castleGo.GetComponent<IDamageable>();
+                if (castle != null && castle.IsAlive) return castle;
+            }
+        }
+
         // 1. Rastgele şans ile oyuncuya mı yoksa surlara mı saldıracağına karar ver
         bool targetPlayer = UnityEngine.Random.value < playerTargetChance;
 
@@ -239,10 +261,10 @@ public class ShipAttack : NetworkBehaviour
         }
 
         // 4. En son çare kaleye saldır
-        GameObject castleGo = GameObject.FindGameObjectWithTag(GameConstants.TAG_CASTLE);
-        if (castleGo != null)
+        GameObject castleFallbackGo = GameObject.FindGameObjectWithTag(GameConstants.TAG_CASTLE);
+        if (castleFallbackGo != null)
         {
-            IDamageable castle = castleGo.GetComponent<IDamageable>();
+            IDamageable castle = castleFallbackGo.GetComponent<IDamageable>();
             if (castle != null && castle.IsAlive) return castle;
         }
 

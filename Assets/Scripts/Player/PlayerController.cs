@@ -33,12 +33,13 @@ public class PlayerController : NetworkBehaviour
 
     private CharacterController controller;
     private PlayerStamina stamina;
+    private PotionSystem potions;
     private Vector3 verticalVelocity;            // Sadece dikey hız (yerçekimi + zıplama)
     private Vector3 impulseVelocity;             // Saldırı vb. anlık itmeler
     private float speedMultiplier = 1f;          // CarrySystem vb. için hız ölçekleyici (1 = normal)
 
     private Vector3 smoothedMoveDir;             // Yon yumusatma icin
-private float currentSpeed;                  // SmoothDamp ile yumusatilmis yatay hiz
+    private float currentSpeed;                  // SmoothDamp ile yumusatilmis yatay hiz
     private float speedDampVel;
     private float coyoteCounter;
     private float jumpBufferCounter;
@@ -58,6 +59,7 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
     {
         controller = GetComponent<CharacterController>();
         stamina = GetComponent<PlayerStamina>();
+        potions = GetComponent<PotionSystem>();
         if (cameraTransform == null && Camera.main != null)
             cameraTransform = Camera.main.transform;
     }
@@ -334,7 +336,8 @@ private float currentSpeed;                  // SmoothDamp ile yumusatilmis yata
             }
         }
 
-        float targetSpeed = IsMoving ? (IsSprinting ? sprintSpeed : moveSpeed) * speedMultiplier : 0f;
+        float potionSpeedMult = potions != null ? potions.SpeedMultiplier : 1f;
+        float targetSpeed = IsMoving ? (IsSprinting ? sprintSpeed : moveSpeed) * speedMultiplier * potionSpeedMult : 0f;
 // Hizi anlik degil yumusak yaklastir — kalkis ve durus daha agirlikli hissediyor
         currentSpeed = Mathf.SmoothDamp(currentSpeed, targetSpeed, ref speedDampVel, accelerationTime);
 
