@@ -14,6 +14,7 @@ TagManager:
   - TradeRoad
   - Door
   - Item
+  - Anons
   layers:
   - Default
   - TransparentFX

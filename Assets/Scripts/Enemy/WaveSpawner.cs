@@ -1,10 +1,11 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using Unity.Netcode;
 
 // Dalga başlayınca WaveData'daki gemileri sırayla (spawnInterval aralıklarla) kuzeyden spawn eder.
 // ObjectPooler varsa onu kullanır; her gemi için EventBus.FireShipSpawned çağrılır.
-public class WaveSpawner : MonoBehaviour
+public class WaveSpawner : NetworkBehaviour
 {
     [SerializeField] private WaveData[] waves;
     [SerializeField] private Transform[] spawnPoints;       // Kuzeyde (denizde) spawn noktaları
@@ -34,6 +35,8 @@ public class WaveSpawner : MonoBehaviour
 
     private void HandleWaveStart(int waveNumber)
     {
+        if (!IsServer) return; // Only server should spawn waves
+
         WaveData wave = GetWaveData(waveNumber);
         if (wave == null) return;
 
@@ -43,7 +46,7 @@ public class WaveSpawner : MonoBehaviour
 
     private void HandleWaveEnd(int waveNumber)
     {
-        if (spawnRoutine == null) return;
+        if (!IsServer || spawnRoutine == null) return;
         StopCoroutine(spawnRoutine);
         spawnRoutine = null;
     }
@@ -78,6 +81,15 @@ public class WaveSpawner : MonoBehaviour
         Quaternion rot = point != null ? point.rotation * Quaternion.Euler(0, 90, 0) : Quaternion.Euler(0, 90, 0);
 
         GameObject ship = SpawnObject(shipData.prefab, pos, rot);
+        if (ship == null) return;
+
+        // Network üzerinden tüm client'larda spawn et
+        NetworkObject netObj = ship.GetComponent<NetworkObject>();
+        if (netObj != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            if (!netObj.IsSpawned)
+                netObj.Spawn();
+        }
 
         ShipMovement movement = ship.GetComponent<ShipMovement>();
         if (movement != null)
@@ -86,8 +98,15 @@ public class WaveSpawner : MonoBehaviour
             Vector3 offset = formation != null ? formation.GetOffset(formationIndex) : Vector3.zero;
             movement.SetFormationOffset(offset);
         }
-        formationIndex++;
+        
+        // Gemi yapılandırması (can vb.)
+        ShipHealth health = ship.GetComponent<ShipHealth>();
+        if (health != null)
+        {
+            health.Configure(shipData);
+        }
 
+        formationIndex++;
         EventBus.FireShipSpawned(shipData.shipType);
     }
 

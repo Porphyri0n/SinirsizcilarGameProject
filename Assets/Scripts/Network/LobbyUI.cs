@@ -149,7 +149,15 @@ public class LobbyUI : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(roomNameInput.text))
         {
-            LobbyManager.Instance.JoinRoom(roomNameInput.text);
+            // Join by code if the input is 6 characters (likely a code)
+            if (roomNameInput.text.Length == 6)
+            {
+                LobbyManager.Instance.JoinByCode(roomNameInput.text);
+            }
+            else
+            {
+                LobbyManager.Instance.JoinRoom(roomNameInput.text);
+            }
         }
     }
 
@@ -217,7 +225,8 @@ public class LobbyUI : MonoBehaviour
         // Display room name/info
         if (roomInfoText != null)
         {
-            roomInfoText.text = $"LOBBY: {roomNameInput.text}\nPLAYERS: {NetworkManager.Singleton.ConnectedClientsList.Count}/{GameConstants.MAX_PLAYERS_PER_ROOM}";
+            string joinCode = LobbyManager.Instance != null ? LobbyManager.Instance.JoinCode : "";
+            roomInfoText.text = $"LOBBY: {roomNameInput.text}\nCODE: <color=yellow>{joinCode}</color>\nPLAYERS: {NetworkManager.Singleton.ConnectedClientsList.Count}/{GameConstants.MAX_PLAYERS_PER_ROOM}";
         }
 
         // Clear existing entries in container (excluding template)

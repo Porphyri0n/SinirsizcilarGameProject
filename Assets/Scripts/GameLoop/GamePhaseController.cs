@@ -73,12 +73,15 @@ public class GamePhaseController : MonoBehaviour
             if (GameStateSync.Instance != null && GameStateSync.Instance.GameStarted.Value)
             {
                 gameStarted = true;
-                EnterPrep();
+                if (AuthorityManager.IsHost) EnterPrep();
             }
             return;
         }
 
         if (gameOver || currentPhase != GamePhase.Prep) return;
+
+        // Sadece Host zamanlayıcıyı yönetir; faz geçişlerini o belirler.
+        if (!AuthorityManager.IsHost) return;
 
         prepTimer -= Time.deltaTime;
         if (prepTimer <= 0f)
@@ -122,7 +125,7 @@ public class GamePhaseController : MonoBehaviour
     {
         lastCompletedWave = waveNumber;
         if (gameOver) return;   // oyun bittiyse yeni prep'e dönme
-        EnterPrep();
+        if (AuthorityManager.IsHost) EnterPrep();
     }
 
     private void HandleGameLost(int survivedWaves)

@@ -1,0 +1,6 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:Style src="project://database/Assets/UI/PotionEffects/PotionEffect.uss" />
+    <ui:VisualElement name="root" class="root" picking-mode="Ignore">
+        <ui:VisualElement name="potionOverlay" class="potion-overlay" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

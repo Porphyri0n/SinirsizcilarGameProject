@@ -7,7 +7,7 @@
             <ui:Label text="GAME LOBBY" class="header-text" />
             <ui:Label text="Create or join a room to play" class="subtitle-text" />
             
-            <ui:TextField name="roomNameInput" label="Room Name" class="input-field" />
+            <ui:TextField name="roomNameInput" label="Room Name or Code (6 chars)" class="input-field" />
             
             <ui:VisualElement class="spacer" />
             

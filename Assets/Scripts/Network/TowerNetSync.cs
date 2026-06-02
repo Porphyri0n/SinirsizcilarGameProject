@@ -2,22 +2,46 @@ using System;
 using UnityEngine;
 using Unity.Netcode;
 
-// Kule senkronu — giriş/çıkış, ateş ve yükseltme RPC'leri. Kule sabit olduğu için pozisyon stream'i yok.
-// Kuleyi yerel kullanan client EventBus olaylarını RpcTarget.Others'a taşır; diğer client'lar gelen
-// RPC'de aynı EventBus olayını tekrar fire eder (UI/efekt/mermi görseli OnTowerFired dinleyicilerinde olur).
-// Yükseltme TowerUpgrade'in instance event'inden alınır; alıcıda guard ile tekrar yayınlanmaz.
+// Kule senkronu — giriş/çıkış, ateş ve yükseltme.
+// Sahne objeleri Server sahipliğinde olduğu için RPC(SendTo.NotOwner) kullanımı yanıltıcı olabilir.
+// Bunun yerine doluluk ve seviye durumunu NetworkVariable ile tutuyoruz.
 public class TowerNetSync : NetworkBehaviour
 {
     [SerializeField] private TowerController controller;
     [SerializeField] private TowerUpgrade upgrade;
 
-    private int localOperatorPid = -1;      // bu client'ın bu kuleyi kullandığı pid (giriş↔çıkış eşlemesi)
-    private bool applyingRemoteUpgrade;     // RPC ile gelen yükseltmeyi tekrar yayınlamamak için
+    // NetworkVariables (Ownership hatalarını önlemek için durum senkronu)
+    private readonly NetworkVariable<ulong> currentOperatorId = new NetworkVariable<ulong>(ulong.MaxValue, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<int> currentLevel = new NetworkVariable<int>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+    public int CurrentLevel => currentLevel.Value;
+
+    private int localOperatorPid = -1;
+private bool isSyncingFromNetwork;
 
     private void Awake()
     {
         if (controller == null) controller = GetComponent<TowerController>();
         if (upgrade == null) upgrade = GetComponent<TowerUpgrade>();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        currentOperatorId.OnValueChanged += OnOperatorChanged;
+        currentLevel.OnValueChanged += OnLevelChanged;
+
+        // Başlangıç değerlerini senkronize et
+        if (currentOperatorId.Value != ulong.MaxValue)
+            OnOperatorChanged(ulong.MaxValue, currentOperatorId.Value);
+        
+        if (currentLevel.Value != 0)
+            OnLevelChanged(0, currentLevel.Value);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        currentOperatorId.OnValueChanged -= OnOperatorChanged;
+        currentLevel.OnValueChanged -= OnLevelChanged;
     }
 
     private void OnEnable()
@@ -36,24 +60,71 @@ public class TowerNetSync : NetworkBehaviour
         if (upgrade != null) upgrade.OnUpgraded -= HandleUpgraded;
     }
 
-    // ── Yerel kullanıcı: EventBus -> RPC ────────────────────────────────
+    // ── NetworkVariable Callbacks ───────────────────────────────────────
 
-    // Sadece bu kuleyi yerel oyuncu kullanıyorsa yayınla (aynı tipte başka kule yanlış tetiklenmesin).
+    private void OnOperatorChanged(ulong oldId, ulong newId)
+    {
+        if (isSyncingFromNetwork || controller == null) return;
+        
+        isSyncingFromNetwork = true;
+        
+        if (newId == ulong.MaxValue)
+        {
+            // Kule boşaldı
+            if (controller.IsOccupied)
+            {
+                // Eğer çıkan biz değilsek controller'ı temizle (Çıkan bizsek zaten yerel Exit çağırdık)
+                if (!IsLocalActor((int)oldId))
+                    controller.Exit(controller.OperatorPlayer);
+            }
+        }
+        else
+        {
+            // Kuleye biri girdi
+            if (!IsLocalActor((int)newId))
+            {
+                // Eğer biz kulede olduğumuzu sanıyorsak ama sunucu başkasını diyorsa (Race condition), kuleden çık
+                if (controller.IsOccupied && IsLocalActor(controller.OperatorPlayerID))
+                {
+                    controller.Exit(controller.OperatorPlayer);
+                }
+
+                if (NetworkManager.Singleton.ConnectedClients.TryGetValue(newId, out var client))
+                {
+                    controller.SetOccupant(client.PlayerObject.gameObject, (int)newId);
+                }
+            }
+        }
+        
+        isSyncingFromNetwork = false;
+    }
+
+    private void OnLevelChanged(int oldLevel, int newLevel)
+    {
+        if (isSyncingFromNetwork || upgrade == null) return;
+        
+        isSyncingFromNetwork = true;
+        upgrade.SetLevel((UpgradeLevel)newLevel);
+        isSyncingFromNetwork = false;
+    }
+
+    // ── Yerel kullanıcı: EventBus -> ServerRpc ─────────────────────────
+
     private void HandleTowerEntered(int pid, DefenseType type)
     {
-        if (controller == null || !controller.IsOccupied) return;
+        if (isSyncingFromNetwork || controller == null || !controller.IsOccupied) return;
         if (controller.OperatorPlayerID != pid || !IsLocalActor(pid)) return;
 
         localOperatorPid = pid;
-        RPC_EnterTowerRpc(pid, (int)type);
+        RequestEnterServerRpc((ulong)pid);
     }
 
     private void HandleTowerExited(int pid, DefenseType type)
     {
-        if (pid != localOperatorPid) return;    // bizim girişimizin çıkışı değil
+        if (isSyncingFromNetwork || pid != localOperatorPid) return;
 
         localOperatorPid = -1;
-        RPC_ExitTowerRpc(pid, (int)type);
+        RequestExitServerRpc();
     }
 
     private void HandleTowerFired(DefenseType type, Vector3 target)
@@ -61,54 +132,59 @@ public class TowerNetSync : NetworkBehaviour
         if (controller == null || !controller.IsOccupied) return;
         if (!IsLocalActor(controller.OperatorPlayerID)) return;
 
+        // Görsel efekt RPC'si Unreliable (hızlı ve hafif)
         RPC_TowerFireRpc((int)type, target);
     }
 
     private void HandleUpgraded(UpgradeLevel level)
     {
-        if (applyingRemoteUpgrade || Unity.Netcode.NetworkManager.Singleton == null || !Unity.Netcode.NetworkManager.Singleton.IsClient) return;
-        RPC_UpgradeRpc((int)level);
+        if (isSyncingFromNetwork || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsClient) return;
+        RequestUpgradeServerRpc((int)level);
     }
 
-    // ── RPC'ler (alıcı tarafı — yerel EventBus'a yeniden yayınla) ────────
+    // ── ServerRpc'ler (State changes) ───────────────────────────────────
 
-    [Rpc(SendTo.NotOwner)]
-    private void RPC_EnterTowerRpc(int pid, int typeInt)
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestEnterServerRpc(ulong clientId)
     {
-        EventBus.FireTowerEntered(pid, (DefenseType)typeInt);
+        if (currentOperatorId.Value == ulong.MaxValue)
+        {
+            currentOperatorId.Value = clientId;
+        }
+        else
+        {
+            Debug.LogWarning($"Client {clientId} tried to enter a tower already occupied by {currentOperatorId.Value}");
+        }
     }
 
-    [Rpc(SendTo.NotOwner)]
-    private void RPC_ExitTowerRpc(int pid, int typeInt)
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestExitServerRpc()
     {
-        EventBus.FireTowerExited(pid, (DefenseType)typeInt);
+        currentOperatorId.Value = ulong.MaxValue;
     }
 
-    // Ateş herkeste görünsün — mermi/namlu görseli OnTowerFired dinleyicilerinde spawn olur.
-    [Rpc(SendTo.NotOwner)]
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestUpgradeServerRpc(int levelInt)
+    {
+        currentLevel.Value = levelInt;
+    }
+
+    // ── Rpc'ler (Visuals) ───────────────────────────────────────────────
+
+    // Ateş görselini diğerlerine gönderiyoruz.
+    // Delivery = Unreliable kullanılarak performans artırılır.
+    [Rpc(SendTo.NotOwner, Delivery = RpcDelivery.Unreliable)]
     private void RPC_TowerFireRpc(int typeInt, Vector3 target)
     {
         EventBus.FireTowerFired((DefenseType)typeInt, target);
-    }
-
-    // Yükseltmeyi alıcıda da uygula → tier/stat senkron kalır, yerel EventBus.FireUpgradeCompleted tetiklenir.
-    [Rpc(SendTo.NotOwner)]
-    private void RPC_UpgradeRpc(int levelInt)
-    {
-        if (upgrade == null) return;
-
-        applyingRemoteUpgrade = true;
-        if (upgrade.CurrentLevel != (UpgradeLevel)levelInt && upgrade.CanUpgrade())
-            upgrade.Upgrade();
-        applyingRemoteUpgrade = false;
     }
 
     // ── Yardımcı ────────────────────────────────────────────────────────
 
     private static bool IsLocalActor(int pid)
     {
-        return Unity.Netcode.NetworkManager.Singleton != null
-            && Unity.Netcode.NetworkManager.Singleton.IsClient
-            && (ulong)pid == Unity.Netcode.NetworkManager.Singleton.LocalClientId;
+        return NetworkManager.Singleton != null
+            && NetworkManager.Singleton.IsClient
+            && (ulong)pid == NetworkManager.Singleton.LocalClientId;
     }
 }

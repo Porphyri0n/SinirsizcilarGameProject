@@ -131,7 +131,7 @@ public class PlayerSpawnController : NetworkBehaviour
             }
         }
 
-        if (playerHealth != null) playerHealth.ResetHealth();   // can full
+        if (IsServer && playerHealth != null) playerHealth.ResetHealth();   // can full
         SetControlEnabled(true);                                // kontrol geri ver
     }
 

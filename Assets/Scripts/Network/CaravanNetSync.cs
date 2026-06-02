@@ -10,11 +10,6 @@ public class CaravanNetSync : NetworkBehaviour
 {
     [SerializeField] private CaravanController controller;
     [SerializeField] private CaravanMovement movement;
-    [SerializeField] private float lerpSpeed = 6f;
-    [SerializeField] private float teleportDistance = 5f;     // Bu mesafeden uzaksa lerp yerine ışınla
-
-    private readonly NetworkVariable<Vector3> netPosition = new NetworkVariable<Vector3>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
-    private readonly NetworkVariable<Quaternion> netRotation = new NetworkVariable<Quaternion>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private bool hostHooked;
     private bool approachAnnounced;
@@ -28,12 +23,6 @@ public class CaravanNetSync : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        if (IsServer)
-        {
-            netPosition.Value = transform.position;
-            netRotation.Value = transform.rotation;
-        }
-
         // Owner değilsek yerel hareket host'un transformuyla çakışmasın diye kapat.
         if (!IsOwner && movement != null)
             movement.enabled = false;
@@ -61,25 +50,9 @@ public class CaravanNetSync : NetworkBehaviour
     {
         if (IsOwner)
         {
-            if (IsServer)
-            {
-                netPosition.Value = transform.position;
-                netRotation.Value = transform.rotation;
-            }
             AnnounceApproachOnce();
             AnnounceAttackOnce();
-            return;
         }
-
-        Vector3 currentPos = netPosition.Value;
-        Quaternion currentRot = netRotation.Value;
-
-        if ((transform.position - currentPos).sqrMagnitude > teleportDistance * teleportDistance)
-            transform.position = currentPos;
-        else
-            transform.position = Vector3.Lerp(transform.position, currentPos, lerpSpeed * Time.deltaTime);
-
-        transform.rotation = Quaternion.Slerp(transform.rotation, currentRot, lerpSpeed * Time.deltaTime);
     }
 
     // ── Host tarafı ─────────────────────────────────────────────────────

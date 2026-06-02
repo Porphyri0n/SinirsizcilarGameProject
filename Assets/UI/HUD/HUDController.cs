@@ -17,13 +17,15 @@ private VisualElement playerEnergyFill;
     private VisualElement castleHpFill;
     private VisualElement wall1HpFill;
     private VisualElement wall2HpFill;
+    private VisualElement wall3HpFill;
+    private VisualElement wall4HpFill;
 
     private GameObject localPlayer;
-private PlayerHealth localHealth;
+    private PlayerHealth localHealth;
     private PlayerStamina localStamina;
 
     private void OnEnable()
-{
+    {
         root = GetComponent<UIDocument>().rootVisualElement;
 
         waveLabel = root.Q<Label>("waveLabel");
@@ -35,10 +37,12 @@ private PlayerHealth localHealth;
         goldAmount = root.Q<Label>("goldAmount");
         crystalAmount = root.Q<Label>("crystalAmount");
         playerHpFill = root.Q<VisualElement>("playerHpFill");
-playerEnergyFill = root.Q<VisualElement>("playerEnergyFill");
+        playerEnergyFill = root.Q<VisualElement>("playerEnergyFill");
         castleHpFill = root.Q<VisualElement>("castleHpFill");
         wall1HpFill = root.Q<VisualElement>("wall1HpFill");
         wall2HpFill = root.Q<VisualElement>("wall2HpFill");
+        wall3HpFill = root.Q<VisualElement>("wall3HpFill");
+        wall4HpFill = root.Q<VisualElement>("wall4HpFill");
 
         EventBus.OnPhaseChanged += HandlePhaseChanged;
         EventBus.OnWaveStart += HandleWaveStart;
@@ -63,7 +67,15 @@ playerEnergyFill = root.Q<VisualElement>("playerEnergyFill");
 
     private void HandleWallHealthChanged(int index, float current, float max)
     {
-        VisualElement targetFill = (index == 0) ? wall1HpFill : (index == 1 ? wall2HpFill : null);
+        VisualElement targetFill = index switch
+        {
+            0 => wall1HpFill,
+            1 => wall2HpFill,
+            2 => wall3HpFill,
+            3 => wall4HpFill,
+            _ => null
+        };
+
         if (targetFill == null) return;
 
         float percent = (max > 0f) ? (current / max) * 100f : 0f;

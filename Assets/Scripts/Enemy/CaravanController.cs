@@ -99,9 +99,15 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
         }
     }
 
+    [Rpc(SendTo.Server)]
+    public void RequestTakeDamageRpc(float amount, Vector3 hitPoint)
+    {
+        TakeDamage(amount, hitPoint);
+    }
+
     // ── IDamageable: haydut saldirisi ────────────────────────────────────
     public void TakeDamage(float amount, Vector3 hitPoint)
-    {
+{
         if (!IsServer || !IsAlive || amount <= 0f || netInteracted.Value) return;
 
         // Yolculuk sirasinda ilk hasarda saldiri altinda durumuna gec
@@ -169,6 +175,12 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
                 Array.Resize(ref types, idx);
                 Array.Resize(ref amounts, idx);
                 DeliverCargoClientRpc(types, amounts);
+
+                // Sunucu tarafında kaynakları doğrudan ekle (authoritative)
+                for (int i = 0; i < idx; i++)
+                {
+                    EconomyManager.Instance.AddResource((ResourceType)types[i], amounts[i]);
+                }
             }
         }
 
