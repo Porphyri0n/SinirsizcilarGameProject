@@ -101,6 +101,7 @@ public class ShipAttack : NetworkBehaviour
         if (projectilePrefab == null) return;
 
         Transform origin = muzzle != null ? muzzle : transform;
+        PlayFireSoundClientRpc(origin.position);
         
         // Hedefe doğru yönü hesapla
         Vector3 targetPos = GetTargetPosition(currentTarget);
@@ -319,6 +320,16 @@ public class ShipAttack : NetworkBehaviour
     public void Configure(ShipData data)
     {
         shipData = data;
+    }
+
+    [ClientRpc]
+    private void PlayFireSoundClientRpc(Vector3 position)
+    {
+        AudioClip clip = Resources.Load<AudioClip>("top");
+        if (clip != null)
+        {
+            AudioSource.PlayClipAtPoint(clip, position);
+        }
     }
 }
 

@@ -30,6 +30,10 @@ public class BanditAI : MonoBehaviour
 
     public BanditState State { get; private set; }
 
+    [SerializeField] private Animator animator;
+    private BanditState lastState = (BanditState)(-1);
+    private bool wasDead = false;
+
     private Transform target;
     private IDamageable targetDamageable;
     private float stateTimer;
@@ -51,6 +55,7 @@ public class BanditAI : MonoBehaviour
         if (health == null) health = GetComponent<BanditHealth>();
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         netSync = GetComponent<BanditNetSync>();
+        if (animator == null) animator = GetComponentInChildren<Animator>();
 
         // Freeze rotation so physics can never tip the character over.
         rb = GetComponent<Rigidbody>();
@@ -67,6 +72,10 @@ public class BanditAI : MonoBehaviour
         EnterIdle();
         if (health != null) health.OnHealthChanged += HandleDamaged;
         EventBus.OnCaravanDestroyed += HandleCaravanDestroyed;
+        EventBus.OnCaravanLooted += HandleCaravanLooted;
+
+        lastState = (BanditState)(-1);
+        wasDead = false;
 
         if (agent != null)
         {
@@ -85,6 +94,7 @@ public class BanditAI : MonoBehaviour
     {
         if (health != null) health.OnHealthChanged -= HandleDamaged;
         EventBus.OnCaravanDestroyed -= HandleCaravanDestroyed;
+        EventBus.OnCaravanLooted -= HandleCaravanLooted;
     }
 
     public void Configure(BanditData banditData)
@@ -104,6 +114,8 @@ public class BanditAI : MonoBehaviour
         {
             UpdateClientState();
         }
+
+        UpdateAnimations();
     }
 
     // Safety net: clamp X and Z rotation to 0 every frame so a physics nudge
@@ -233,8 +245,33 @@ public class BanditAI : MonoBehaviour
     private void HandleCaravanDestroyed()
     {
         if (State == BanditState.Retreat) return;
-        if (chasingPlayer && TargetValid()) return;
-        EnterRetreat();
+        
+        AcquireDefaultTarget();
+        if (TargetValid())
+        {
+            State = BanditState.Chase;
+            if (agent != null && agent.isOnNavMesh) agent.isStopped = false;
+        }
+        else
+        {
+            EnterRetreat();
+        }
+    }
+
+    private void HandleCaravanLooted()
+    {
+        if (State == BanditState.Retreat) return;
+        
+        AcquireDefaultTarget();
+        if (TargetValid())
+        {
+            State = BanditState.Chase;
+            if (agent != null && agent.isOnNavMesh) agent.isStopped = false;
+        }
+        else
+        {
+            EnterRetreat();
+        }
     }
 
     private void EnterRetreat()
@@ -267,7 +304,15 @@ public class BanditAI : MonoBehaviour
         }
     }
 
-    private bool TargetValid() => target != null && targetDamageable != null && targetDamageable.IsAlive;
+    private bool TargetValid()
+    {
+        if (target == null || targetDamageable == null || !targetDamageable.IsAlive) return false;
+
+        CaravanController caravan = target.GetComponent<CaravanController>();
+        if (caravan != null && caravan.IsLooted) return false;
+
+        return true;
+    }
 
     private bool EnsureTarget()
     {
@@ -293,7 +338,7 @@ public class BanditAI : MonoBehaviour
         {
             if (go == null) continue;
             CaravanController c = go.GetComponent<CaravanController>();
-            if (c == null || !c.IsAlive) continue;
+            if (c == null || !c.IsAlive || c.IsLooted) continue;
 
             float d = (go.transform.position - transform.position).sqrMagnitude;
             if (d < best) { best = d; nearest = go.transform; nearestDmg = c; }
@@ -342,7 +387,7 @@ public class BanditAI : MonoBehaviour
         {
             if (go == null) continue;
             CaravanController c = go.GetComponent<CaravanController>();
-            if (c != null && c.IsAlive) return true;
+            if (c != null && c.IsAlive && !c.IsLooted) return true;
         }
         return false;
     }
@@ -392,6 +437,42 @@ public class BanditAI : MonoBehaviour
         if (dir.sqrMagnitude < 0.0001f) return;
         Quaternion look = Quaternion.LookRotation(dir.normalized);
         transform.rotation = Quaternion.Slerp(transform.rotation, look, turnSpeed * Time.deltaTime);
+    }
+
+    private void UpdateAnimations()
+    {
+        if (animator == null) return;
+
+        bool isDead = (health != null && !health.IsAlive);
+        if (isDead)
+        {
+            if (!wasDead)
+            {
+                wasDead = true;
+                animator.CrossFade("Die", 0.15f);
+            }
+            return;
+        }
+
+        wasDead = false;
+
+        if (State != lastState)
+        {
+            lastState = State;
+            switch (State)
+            {
+                case BanditState.Idle:
+                    animator.CrossFade("Idle", 0.15f);
+                    break;
+                case BanditState.Chase:
+                case BanditState.Retreat:
+                    animator.CrossFade("WalkRun", 0.15f);
+                    break;
+                case BanditState.Attack:
+                    animator.CrossFade("Attack", 0.15f);
+                    break;
+            }
+        }
     }
 
     private static Vector3 Flat(Vector3 v)

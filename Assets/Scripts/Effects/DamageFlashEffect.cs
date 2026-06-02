@@ -41,6 +41,8 @@ public class DamageFlashEffect : MonoBehaviour
             shipHealth.OnHealthChanged += HandleHealthChanged;
         else if (health is CaravanController caravan)
             caravan.OnHealthChanged += HandleHealthChanged;
+        else if (health is PlayerHealth playerHealth)
+            playerHealth.OnHealthChanged += HandleHealthChanged;
     }
 
     private void OnDisable()
@@ -51,6 +53,8 @@ public class DamageFlashEffect : MonoBehaviour
             shipHealth.OnHealthChanged -= HandleHealthChanged;
         else if (health is CaravanController caravan)
             caravan.OnHealthChanged -= HandleHealthChanged;
+        else if (health is PlayerHealth playerHealth)
+            playerHealth.OnHealthChanged -= HandleHealthChanged;
     }
 
     private void HandleHealthChanged(float current, float max)

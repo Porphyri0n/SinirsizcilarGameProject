@@ -17,10 +17,19 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public bool IsAlive => !netIsDead.Value;
 
     public event Action OnDeath;
+    public event Action<float, float> OnHealthChanged;
 
     private void Awake()
     {
         // NetworkVariable'lar OnNetworkSpawn'da initialize edilir.
+    }
+
+    private void Start()
+    {
+        if (GetComponent<DamageFlashEffect>() == null)
+        {
+            gameObject.AddComponent<DamageFlashEffect>();
+        }
     }
 
     public override void OnNetworkSpawn()
@@ -39,7 +48,17 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
             }
         };
         
-        // netHealth.OnValueChanged hooked if needed (e.g. for UI)
+        netHealth.OnValueChanged += HandleHealthChanged;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        netHealth.OnValueChanged -= HandleHealthChanged;
+    }
+
+    private void HandleHealthChanged(float previousValue, float newValue)
+    {
+        OnHealthChanged?.Invoke(newValue, maxHealth);
     }
 
     public void TakeDamage(float amount, Vector3 hitPoint)

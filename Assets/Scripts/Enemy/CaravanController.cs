@@ -24,6 +24,7 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
     public float CurrentHealth => netHealth.Value;
     public float MaxHealth => data != null ? data.maxHealth : 0f;
     public bool IsAlive => !netDestroyed.Value && netHealth.Value > 0f;
+    public bool IsLooted => netInteracted.Value;
     public event Action OnDeath;
     public event Action<float, float> OnHealthChanged;
 
@@ -221,6 +222,7 @@ public class CaravanController : NetworkBehaviour, IDamageable, IInteractable
         // Lootlandi: TakeDamage artik no-op (dayaniksiz degil) ve kervan geri doner.
         netState.Value = CaravanState.Departing;
         if (movement != null) movement.BeginDepart();
+        EventBus.FireCaravanLooted();
     }
 
     [ClientRpc]

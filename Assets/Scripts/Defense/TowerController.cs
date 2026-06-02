@@ -258,7 +258,15 @@ public class TowerController : NetworkBehaviour, IOperable, IInteractable
         }
 
         // Feedback: SFX
-        if (fireSound != null)
+        if (DefenseType == DefenseType.CannonTower)
+        {
+            AudioClip clip = Resources.Load<AudioClip>("top");
+            if (clip != null)
+            {
+                AudioSource.PlayClipAtPoint(clip, pos);
+            }
+        }
+        else if (fireSound != null)
         {
             AudioSource.PlayClipAtPoint(fireSound, pos);
         }

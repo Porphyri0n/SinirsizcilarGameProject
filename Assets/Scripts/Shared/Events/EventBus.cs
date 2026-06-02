@@ -39,6 +39,9 @@ public static class EventBus
     public static event Action OnCaravanDestroyed;
     public static void FireCaravanDestroyed() => OnCaravanDestroyed?.Invoke();
 
+    public static event Action OnCaravanLooted;
+    public static void FireCaravanLooted() => OnCaravanLooted?.Invoke();
+
     // ── BANDITS (Haydutlar) ─────────────────────────────────────────────
     public static event Action<int, Vector3> OnBanditRaid;     // banditCount, position
     public static void FireBanditRaid(int count, Vector3 pos) => OnBanditRaid?.Invoke(count, pos);
@@ -153,6 +156,7 @@ public static class EventBus
         OnCaravanArrived = null;
         OnCaravanUnderAttack = null;
         OnCaravanDestroyed = null;
+        OnCaravanLooted = null;
         OnBanditRaid = null;
         OnBanditKilled = null;
         OnCastleDamaged = null;
